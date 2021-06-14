@@ -25,10 +25,11 @@
  */
 
 class Util {
-
+    companion object {
 //// TODO
 ///**
 // * desperate attempt to convert a string regardless of what garbage we get
+// * from DFReader.py
 // */
 //fun to_string(s : String): String {
 //    var str = s
@@ -62,13 +63,60 @@ class Util {
 //    return r + "_XXX"
 //}
 
-    /**
-     * return true if a file appears to be a valid text log
-     */
-    fun DFReader_is_text_log(filename: String) {
-        with open (filename, 'r') as f:
-        val isTextLog = (f.read(8000).find("FMT,") != -1)
+        /**
+         * return true if a file appears to be a valid text log
+         * from: DFReader.py
+         */
+        fun DFReader_is_text_log(filename: String) {
+            with open (filename, 'r') as f:
+            val isTextLog = (f.read(8000).find("FMT,") != -1)
 
-        return isTextLog
+            return isTextLog
+        }
+
+        /**
+         * evaluation an expression
+         * from: Python mavexpression.py
+         */
+        fun evaluate_expression(expression, vars, nocondition = False) {
+            // first check for conditions which take the form EXPRESSION { CONDITION }
+            val v = Any?
+            if (expression[-1] == '}') {
+                startidx = expression.rfind('{')
+                if (startidx == -1) {
+                    return null
+                }
+                condition = expression[startidx + 1:-1]
+                expression = expression[:startidx]
+                try {
+                    v = eval(condition, globals(), vars)
+                } catch (e: Throwable) {
+                    return null
+                }
+                if (!nocondition and not v) {
+                    return null
+                }
+            }
+            try {
+                v = eval(expression, globals(), vars)
+            } catch (e: Throwable) {
+                return null
+            }
+            return v
+    }
+
+
+        /**
+         * evaluation a conditional (boolean) statement
+         * from: Python mavutil.py
+         */
+        fun evaluate_condition(condition, vars): Boolean {
+            if (condition == null)
+                return true
+            var v = evaluate_expression(condition, vars)
+            if (v == null)
+                return false
+            return v
+        }
     }
 }

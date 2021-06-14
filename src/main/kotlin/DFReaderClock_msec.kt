@@ -34,7 +34,7 @@ class DFReaderClock_msec() : DFReaderClock() {
      * work out time basis for the log - new style
      */
     fun find_time_base( gps, first_ms_stamp) {
-        val t = ._gpsTimeToTime(gps.Week, gps.TimeMS)
+        val t = _gpsTimeToTime(gps.Week, gps.TimeMS)
         set_timebase(t - gps.T * 0.001)
         timestamp = timebase + first_ms_stamp * 0.001
     }

@@ -1,10 +1,18 @@
 import java.io.File
 
 fun main() {
-    val df = DataFlashParser()
 
     val dataFlashFile = File("testfile.log")
 
-    df.parse(dataFlashFile)
+    val filename = dataFlashFile.absolutePath.toString()
+    val dfParser = if (filename.endsWith(".log")) {
+        DFReader_text(filename)
+    } else {
+        DFReader_binary(filename)
+    }
 
+    while (true) {
+        if ( dfParser.recv_msg() == null)
+            break
+    }
 }

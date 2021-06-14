@@ -27,9 +27,9 @@ import kotlin.reflect.KClass
  */
 
 class DFFormat(
-    val type: String, //TODO these types are for sure incorrect
+    val type: Int, //TODO these types are for sure incorrect
     val name: String,
-    val flen: String,
+    val flen: Int,
     val format: String,
     val columns: String,
     val oldfmt: DFFormat? = null

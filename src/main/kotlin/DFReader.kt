@@ -30,11 +30,14 @@
 open class DFReader() {
     var clock : DFReaderClock? = null
     var timestamp = 0
-    var mav_type = mavutil.mavlink.MAV_TYPE_FIXED_WING
+    var mav_type = MAV_TYPE.MAV_TYPE_FIXED_WING
     var verbose = false
     var params = {}
-    var _flightmodes = null
-    var messages = {}
+    var _flightmodes : Array<Array<Any?>>? = null
+    var messages = hashMapOf<String,Any?>()
+    var _zero_time_base = false
+    var flightmode : Any? = null
+    var percent : Float = 0f
 
     fun _rewind() {
         // be careful not to replace self . messages with a new hash;
@@ -43,22 +46,20 @@ open class DFReader() {
         // copy they can copy . copy it!
         messages.clear()
         messages["MAV"] = this
-        if (self._flightmodes != null and len(self._flightmodes) > 0) {
-            flightmode = _flightmodes[0][0]
+        if (_flightmodes != null && _flightmodes!!.size > 0) {
+            flightmode = _flightmodes!![0][0]
         } else {
             flightmode = "UNKNOWN"
         }
-        self.percent = 0
-        if (self.clock) {
-            self.clock.rewind_event()
-        }
+        percent = 0f
+        clock?.rewind_event()
     }
 
-    fun init_clock_px4 ( px4_msg_time, px4_msg_gps) : Boolean {
+    fun init_clock_px4 ( px4_msg_time: Int, px4_msg_gps) : Boolean {
         clock = DFReaderClock_px4()
-        if ( not self . _zero_time_base ) {
-            clock.set_px4_timebase(px4_msg_time)
-            clock.find_time_base(px4_msg_gps)
+        if ( !_zero_time_base ) {
+            clock!!.set_px4_timebase(px4_msg_time)
+            clock!!.find_time_base(px4_msg_gps)
         }
         return true
     }
@@ -273,8 +274,8 @@ open class DFReader() {
     /**
      * check if a condition is true
      */
-    fun check_condition( condition) {
-        return mavutil.evaluate_condition(condition, this.messages)
+    fun check_condition( condition) : Boolean {
+        return Util.evaluate_condition(condition, this.messages)
     }
 
     /**
