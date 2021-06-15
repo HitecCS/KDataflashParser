@@ -32,7 +32,7 @@ class DFReaderClock_usec(): DFReaderClock() {
     /**
      * work out time basis for the log - even newer style
      */
-    fun find_time_base( gps, first_us_stamp) {
+    fun find_time_base( gps: DFMessage, first_us_stamp: Int) {
         val t = _gpsTimeToTime(gps.GWk, gps.GMS)
         set_timebase(t - gps.TimeUS * 0.000001)
 //         this ensures FMT messages get appropriate timestamp:

@@ -38,6 +38,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
     var data_map : Any?
     var offset = Int
     var delimeter : String
+    var offsets = arrayOf<Int>()
 
     var formats : HashMap<String, DFFormat>
     var id_to_name : HashMap<Int, String>
@@ -50,7 +51,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         // read the whole file into memory for simplicity
         fileLines = File(filename).readLines()
         data_len = fileLines.size
-        data_map = mmap.mmap(self.filehandle.fileno(), self.data_len, null, mmap.ACCESS_READ)
+        data_map = mmap.mmap(filehandle.fileno(), data_len, null, mmap.ACCESS_READ)
         offset = 0
         delimeter = ", "
 
@@ -67,7 +68,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
      * rewind to start of log
      */
      fun _rewind(){
-        DFReader._rewind(this)
+        super._rewind()
         // find the first valid line
         offset = data_map.find(b"FMT, ")
         if (offset == -1) {
@@ -83,59 +84,62 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
      * rewind to start of log
      */
     fun rewind() {
-        self._rewind()
+        _rewind()
     }
 
+    var counts = arrayOf<Int>()
+    var _count = 0
+    var ofs = 0
     /**
      * initialise arrays for fast recv_match()
      */
     fun init_arrays(progress_callback : ProgressCallback?) {
-        self.offsets = {}
-        self.counts = {}
-        self._count = 0
-        ofs = self.offset
+        offsets = arrayOf<Int>()
+        counts = arrayOf<Int>()
+        _count = 0
+        ofs = offset
         var pct = 0
 
-        while( ofs + 16 < self.data_len) {
-            mtype = self.data_map[ofs:ofs+4]
+        while( ofs + 16 < data_len) {
+            mtype = data_map[ofs:ofs+4]
             if mtype[3] == b',':
             mtype = mtype[0:3]
             if not mtype in self . offsets {
-                self.counts[mtype] = 0
-                self.offsets[mtype] = []
-                self.offset = ofs
-                self._parse_next()
+                counts[mtype] = 0
+                offsets[mtype] = []
+                offset = ofs
+                _parse_next()
             }
-            self.offsets[mtype].append(ofs)
+            offsets[mtype].append(ofs)
 
-            self.counts[mtype] += 1
+            counts[mtype] += 1
 
             if (mtype == "FMT") {
-                self.offset = ofs
-                self._parse_next()
+                offset = ofs
+                _parse_next()
             }
 
             if (mtype == "FMTU") {
-                self.offset = ofs
-                self._parse_next()
+                offset = ofs
+                _parse_next()
             }
 
-            ofs = self.data_map.find(b"\n", ofs)
+            ofs = data_map.find(b"\n", ofs)
             if (ofs == -1) {
                 break
             }
             ofs += 1
-            new_pct = (100 * ofs) // self.data_len
+            new_pct = (100 * ofs) // data_len
             if (progress_callback != null && new_pct != pct) {
                 progress_callback.update(new_pct)
                 pct = new_pct
             }
         }
 
-        for (mtype in self.counts.keys()) {
-            self._count += self.counts[mtype]
+        for (mtype in counts.keys()) {
+            _count += counts[mtype]
         }
-        self.offset = 0
+        offset = 0
     }
 
     /**
@@ -143,36 +147,36 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
      */
     fun skip_to_type(type) {
 
-        if (self.type_list is null) {
+        if (type_list is null) {
 // always add some key msg types so we can track flightmode, params etc
-            self.type_list = type.copy()
-            self.type_list.update(set(["MODE", "MSG", "PARM", "STAT"]))
-            self.type_list = list(self.type_list)
-            self.indexes = []
-            self.type_nums = []
-            for (t in self.type_list) {
-                self.indexes.append(0)
+            type_list = type.copy()
+            type_list.update(set(["MODE", "MSG", "PARM", "STAT"]))
+            type_list = list(type_list)
+            indexes = []
+            type_nums = []
+            for (t in type_list) {
+                indexes.append(0)
             }
         }
         smallest_index = -1
-        smallest_offset = self.data_len
-        for (i in range(len(self.type_list))) {
-            mtype = self.type_list[i]
+        smallest_offset = data_len
+        for (i in range(len(type_list))) {
+            mtype = type_list[i]
             if (not mtype in self . counts) {
                 continue
             }
-            if (self.indexes[i] >= self.counts[mtype]) {
+            if (indexes[i] >= counts[mtype]) {
                 continue
             }
-            ofs = self.offsets[mtype][self.indexes[i]]
+            ofs = offsets[mtype][indexes[i]]
             if (ofs < smallest_offset) {
                 smallest_offset = ofs
                 smallest_index = i
             }
         }
         if (smallest_index >= 0) {
-            self.indexes[smallest_index] += 1
-            self.offset = smallest_offset
+            indexes[smallest_index] += 1
+            offset = smallest_offset
         }
     }
 
@@ -182,25 +186,25 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
     fun _parse_next() {
 
         while (true) {
-            endline = self.data_map.find(b'\n', self.offset)
+            endline = data_map.find(b'\n', offset)
             if (endline == -1) {
-                endline = self.data_len
+                endline = data_len
             }
-            if (endline < self.offset) {
+            if (endline < offset) {
                 break
             }
-            s = self.data_map[self.offset:endline].rstrip()
+            s = data_map[offset:endline].rstrip()
             if (sys.version_info.major >= 3)
                 s = s.decode("utf-8")
-            elements = s.split(self.delimeter)
-            self.offset = endline + 1
+            elements = s.split(delimeter)
+            offset = endline + 1
             if (len(elements) >= 2) {
                 // this_line is good
                 break
             }
         }
 
-        if (self.offset > self.data_len) {
+        if (offset > data_len) {
             return null
         }
 
@@ -210,19 +214,19 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
             elements.append('')
         }
 
-        self.percent = 100.0 * (self.offset / float(self.data_len))
+        percent = 100.0 * (offset / float(data_len))
 
         msg_type = elements[0]
 
-        if (msg_type not in self.formats) {
-            return self._parse_next()
+        if (msg_type not in formats) {
+            return _parse_next()
         }
 
-        fmt = self.formats[msg_type]
+        fmt = formats[msg_type]
 
         if (len(elements) < len(fmt.format)+1) {
             // not enough columns
-            return self._parse_next()
+            return _parse_next()
         }
 
         elements = elements[1:]
@@ -233,7 +237,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
             // name, len, format, headings
             ftype = int(elements[0])
             fname = elements[2]
-            if (self.delimeter == ",") {
+            if (delimeter == ",") {
                 elements = elements[0:4]+[",".join(elements[4:])]
             }
             columns = elements[4]
@@ -247,26 +251,26 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
                 int(elements[1]),
                 elements[3],
                 columns,
-                oldfmt = self.formats.get(ftype, null)
+                oldfmt = formats.get(ftype, null)
             )
-            self.formats[fname] = new_fmt
-            self.id_to_name[ftype] = fname
+            formats[fname] = new_fmt
+            id_to_name[ftype] = fname
         }
         try {
             m = DFMessage(fmt, elements, false, self)
         } catch (valError: ValueError) {
-            return self._parse_next()
+            return _parse_next()
         }
 
         if (m.get_type() == "FMTU") {
             fmtid = getattr(m, "FmtType", null)
-            if (fmtid != null && fmtid in self.id_to_name) {
-                fmtu = self.formats[self.id_to_name[fmtid]]
+            if (fmtid != null && fmtid in id_to_name) {
+                fmtu = formats[id_to_name[fmtid]]
                 fmtu.set_unit_ids(getattr(m, "UnitIds", null))
                 fmtu.set_mult_ids(getattr(m, "MultIds", null))
             }
         }
-        self._add_msg(m)
+        _add_msg(m)
 
         return m
     }
@@ -276,17 +280,17 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
      */
     fun last_timestamp() {
         highest_offset = 0
-        for (mtype in self.counts.keys()) {
-            if (len(self.offsets[mtype]) == 0) {
+        for (mtype in counts.keys()) {
+            if (len(offsets[mtype]) == 0) {
                 continue
             }
-            ofs = self.offsets[mtype][-1]
+            ofs = offsets[mtype][-1]
             if (ofs > highest_offset) {
                 highest_offset = ofs
             }
         }
-        self.offset = highest_offset
-        m = self.recv_msg()
+        offset = highest_offset
+        m = recv_msg()
         return m._timestamp
     }
 

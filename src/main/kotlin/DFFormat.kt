@@ -34,6 +34,9 @@ class DFFormat(
     val columns: String,
     val oldfmt: DFFormat? = null
 ) {
+    /**
+     * https://docs.python.org/3/library/struct.html#format-characters
+     */
     val formatToStruct = hashMapOf(
         'a' to StructContainer("64s", null, String::class),
         'b' to StructContainer("b", null, Int::class),
@@ -62,6 +65,10 @@ class DFFormat(
     var mult_ids: String? = null
     var columnsArr = listOf<String>()
     var colhash = hashMapOf<String, Int>()
+    var msg_mults = arrayListOf<Double?>()
+    val msg_types = arrayListOf<KClass<out Any>>()
+    val msg_struct = 0 //Type unknown
+    val a_indexes = arrayListOf<Int>()
 
     init {
         columnsArr = columns.split(',')
@@ -73,8 +80,6 @@ class DFFormat(
             columnsArr = emptyList()
 
         var msg_struct = "<"
-        val msg_mults = arrayListOf<Double?>()
-        val msg_types = arrayListOf<KClass<out Any>>()
         val msg_fmts = arrayListOf<Char>()
 
         for (c in format) {
@@ -100,7 +105,7 @@ class DFFormat(
             colhash[columnsArr[i]] = i
         }
 
-        var a_indexes = arrayListOf<Int>()
+        val a_indexes = arrayListOf<Int>()
         for (i in 0..msg_fmts.size) {
             if (msg_fmts[i] == 'a') {
                 a_indexes.add(i)

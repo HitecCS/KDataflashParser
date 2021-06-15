@@ -27,23 +27,25 @@
 /**
  * parse a generic dataflash file
  */
-open class DFReader() {
+abstract class DFReader() {
     var clock : DFReaderClock? = null
-    var timestamp = 0
+    var timestamp = 0L
     var mav_type = MAV_TYPE.MAV_TYPE_FIXED_WING
     var verbose = false
     var params = {}
     var _flightmodes : Array<Array<Any?>>? = null
-    var messages = hashMapOf<String,Any?>()
+    var messages = hashMapOf<String, Any>() //can be DFReader or DFMessage
     var _zero_time_base = false
     var flightmode : Any? = null
     var percent : Float = 0f
 
+    abstract fun _parse_next() : DFMessage?
+
     fun _rewind() {
-        // be careful not to replace self . messages with a new hash;
-        // some people have taken a reference to self . messages and we
+        // be careful not to replace self.messages with a new hash;
+        // some people have taken a reference to self.messages and we
         // need their messages to disappear to . If they want their own
-        // copy they can copy . copy it!
+        // copy they can copy.copy it!
         messages.clear()
         messages["MAV"] = this
         if (_flightmodes != null && _flightmodes!!.size > 0) {
@@ -115,7 +117,7 @@ open class DFReader() {
             if (type == "GPS" || type == "GPS2") {
                 if (getattr(m, "TimeUS", 0) != 0 and getattr(m, "GWk", 0) != 0) {//   everything-usec-timestamped
                     init_clock_usec()
-                    if (not self . _zero_time_base ) {
+                    if (!_zero_time_base ) {
                         self.clock.find_time_base(m, first_us_stamp)
                     }
                     have_good_clock = true
@@ -180,14 +182,14 @@ open class DFReader() {
     /**
      * set time for a message
      */
-    fun _set_time( m) {
+    fun _set_time(m: DFMessage) {
         // really just left here for profiling
         m._timestamp = this.timestamp
-        if (len(m._fieldnames) > 0 && this.clock != null)
+        if (m._fieldnames.size > 0 && this.clock != null)
             this.clock.set_message_timestamp(m)
     }
 
-    fun recv_msg(): Any {
+    fun recv_msg(): DFMessage? {
         return _parse_next()
     }
 
@@ -201,9 +203,9 @@ open class DFReader() {
             i = m.__getattr__(m.fmt.instance_field)
             this.messages[String.format("%s[%s]",type, str(i)))] = m
         }
-        if (this.clock) {
-            this.clock.message_arrived(m)
-        }
+
+        clock?.message_arrived(m)
+
 
         if (type == "MSG" && hasattr(m,"Message")) {
             if (m.Message.find("Rover") != -1) {

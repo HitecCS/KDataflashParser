@@ -48,7 +48,7 @@ open class DFReaderClock() {
 //        pass
     }
 
-    fun rewind_event() {
+    open fun rewind_event() {
 //        pass
     }
 }
