@@ -19,5 +19,7 @@ enum class MAV_TYPE {
     // tracker
     MAV_TYPE_ANTENNA_TRACKER,
     // sub
-    MAV_TYPE_SUBMARINE,
+    MAV_TYPE_SUBMARINE;
+
+
 }

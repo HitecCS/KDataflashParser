@@ -32,7 +32,7 @@ abstract class DFReader() {
     var timestamp = 0L
     var mav_type = MAV_TYPE.MAV_TYPE_FIXED_WING
     var verbose = false
-    var params = {}
+    var params = HashMap<String, Any?>()
     var _flightmodes : Array<Array<Any?>>? = null
     var messages = hashMapOf<String, Any>() //can be DFReader or DFMessage
     var _zero_time_base = false
@@ -57,11 +57,11 @@ abstract class DFReader() {
         clock?.rewind_event()
     }
 
-    fun init_clock_px4 ( px4_msg_time: Int, px4_msg_gps) : Boolean {
+    fun init_clock_px4 ( px4_msg_time: DFMessage, px4_msg_gps : DFMessage) : Boolean {
         clock = DFReaderClock_px4()
         if ( !_zero_time_base ) {
-            clock!!.set_px4_timebase(px4_msg_time)
-            clock!!.find_time_base(px4_msg_gps)
+            (clock as DFReaderClock_px4).set_px4_timebase(px4_msg_time)
+            (clock as DFReaderClock_px4).find_time_base(px4_msg_gps)
         }
         return true
     }
@@ -90,11 +90,11 @@ abstract class DFReader() {
         val gps_clock = DFReaderClock_gps_interpolated()
         clock = gps_clock
 
-        var px4_msg_time = null
-        var px4_msg_gps = null
+        var px4_msg_time : DFMessage? = null
+        var px4_msg_gps : DFMessage? = null
         var gps_interp_msg_gps1 = null
-        var first_us_stamp = null
-        var first_ms_stamp = null
+        var first_us_stamp : Double? = null//guessed type
+        var first_ms_stamp : Double? = null//guessed type
 
         var have_good_clock = false
         while (true) {
@@ -106,37 +106,44 @@ abstract class DFReader() {
             val type = m.get_type()
 
             if (first_us_stamp == null) {
-                first_us_stamp = getattr(m, "TimeUS", null)
+                val retPair =  m.__getattr__("TimeUS")
+                if(retPair.second != Double::class)
+                    println("error in DFReader.init_clock TimeUS type was not Double")
+                first_us_stamp = retPair.first as Double //guessed type
             }
 
             if (first_ms_stamp == null && (type != "GPS" && type != "GPS2")) {
                 // Older GPS messages use TimeMS for msecs past start of gps week
-                first_ms_stamp = getattr(m, "TimeMS", null)
+                val retPair =  m.__getattr__("TimeMS")
+                if(retPair.second != Double::class)
+                    println("error in DFReader.init_clock TimeMS type was not Double")
+                first_ms_stamp = retPair.first as Double //guessed type
             }
 
             if (type == "GPS" || type == "GPS2") {
-                if (getattr(m, "TimeUS", 0) != 0 and getattr(m, "GWk", 0) != 0) {//   everything-usec-timestamped
+                if (m.__getattr__("TimeUS",0).first as Int != 0 && m.__getattr__("GWk", 0).first as Int != 0) {//   everything-usec-timestamped
                     init_clock_usec()
                     if (!_zero_time_base ) {
-                        self.clock.find_time_base(m, first_us_stamp)
+                        (clock as DFReaderClock_usec).find_time_base(m, first_us_stamp)
                     }
                     have_good_clock = true
                     break
-                } if ( getattr(m, "T", 0) != 0 and getattr(m, "Week", 0) != 0) {//   GPS is msec-timestamped
+                }
+                if ( m.__getattr__( "T", 0).first as Int != 0 && m.__getattr__("Week", 0).first as Int != 0) {//   GPS is msec-timestamped
                     if (first_ms_stamp == null) {
                         first_ms_stamp = m.T
                     }
                     init_clock_msec()
                     if (!_zero_time_base) {
-                        clock.find_time_base(m, first_ms_stamp)
+                        (clock as DFReaderClock_msec).find_time_base(m, first_ms_stamp)
                     }
                     have_good_clock = true
                     break
                 }
-                if (getattr(m, "GPSTime", 0) != 0) {  // px4-style-only
+                if (m.__getattr__("GPSTime", 0).first as Int != 0) {  // px4-style-only
                     px4_msg_gps = m
                 }
-                if (getattr(m, "Week", 0) != 0) {
+                if (m.__getattr__("Week", 0).first as Int != 0) {
                     if (gps_interp_msg_gps1 != null && (gps_interp_msg_gps1.TimeMS != m.TimeMS || gps_interp_msg_gps1.Week != m.Week)) {
 //                      we've received two distinct, non-zero GPS
 //                      packets without finding a decent clock to
@@ -152,7 +159,7 @@ abstract class DFReader() {
 
             } else if (type == "TIME") {
 //                only px4-style logs use TIME
-                if (getattr(m, "StartTime", null) != null)
+                if (m.__getattr__( "StartTime", null).first as Long? != null)
                     px4_msg_time = m
             }
 
@@ -186,7 +193,7 @@ abstract class DFReader() {
         // really just left here for profiling
         m._timestamp = this.timestamp
         if (m._fieldnames.size > 0 && this.clock != null)
-            this.clock.set_message_timestamp(m)
+            clock!!.set_message_timestamp(m)
     }
 
     fun recv_msg(): DFMessage? {
@@ -196,51 +203,51 @@ abstract class DFReader() {
     /**
      * add a new message
      */
-    fun _add_msg( m) {
-        type = m.get_type()
+    fun _add_msg( m: DFMessage) {
+        val type = m.get_type()
         this.messages[type] = m
         if (m.fmt.instance_field != null) {
-            i = m.__getattr__(m.fmt.instance_field)
-            this.messages[String.format("%s[%s]",type, str(i)))] = m
+            val i = m.__getattr__(m.fmt.instance_field!!)
+            this.messages[String.format("%s[%s]",type, i)] = m
         }
 
         clock?.message_arrived(m)
 
 
-        if (type == "MSG" && hasattr(m,"Message")) {
-            if (m.Message.find("Rover") != -1) {
-                this.mav_type = mavutil.mavlink.MAV_TYPE_GROUND_ROVER
-            } else if (m.Message.find("Plane") != -1) {
-                this.mav_type = mavutil.mavlink.MAV_TYPE_FIXED_WING
-            } else if (m.Message.find("Copter") != -1) {
-                this.mav_type = mavutil.mavlink.MAV_TYPE_QUADROTOR
-            } else if (m.Message.startswith("Antenna")) {
-                this.mav_type = mavutil.mavlink.MAV_TYPE_ANTENNA_TRACKER
-            } else if (m.Message.find("ArduSub") != -1) {
-                this.mav_type = mavutil.mavlink.MAV_TYPE_SUBMARINE
+        if (type == "MSG" && m.Message != null) {
+            if (m.Message!!.indexOf("Rover") != -1) {
+                this.mav_type = MAV_TYPE.MAV_TYPE_GROUND_ROVER
+            } else if (m.Message!!.indexOf("Plane") != -1) {
+                this.mav_type = MAV_TYPE.MAV_TYPE_FIXED_WING
+            } else if (m.Message!!.indexOf("Copter") != -1) {
+                this.mav_type = MAV_TYPE.MAV_TYPE_QUADROTOR
+            } else if (m.Message!!.startsWith("Antenna")) {
+                this.mav_type = MAV_TYPE.MAV_TYPE_ANTENNA_TRACKER
+            } else if (m.Message!!.indexOf("ArduSub") != -1) {
+                this.mav_type = MAV_TYPE.MAV_TYPE_SUBMARINE
             }
         }
         if (type == "MODE") {
-            if (hasattr(m,"Mode") && isinstance(m.Mode, str)) {
-                this.flightmode = m.Mode.upper()
-            } else if ( "ModeNum" in m._fieldnames) {
-                mapping = mavutil.mode_mapping_bynumber(this.mav_type)
-                if (mapping != null && m.ModeNum in mapping) {
+            if (m.Mode != null && m.Mode is String) {
+                this.flightmode = (m.Mode as String).uppercase()
+            } else if ( m._fieldnames.contains("ModeNum")) {
+                val mapping = Util.mode_mapping_bynumber(this.mav_type)
+                if (mapping != null && mapping.contains(m.ModeNum)) {
                     this.flightmode = mapping[m.ModeNum]
                 } else {
                     this.flightmode = "UNKNOWN"
                 }
-            } else if ( hasattr(m,"Mode")) {
-                this.flightmode = mavutil.mode_string_acm(m.Mode)
+            } else if ( m.Mode != null) {
+                this.flightmode = Util.mode_string_acm(m.Mode as Int)
             }
 
 
         }
-        if (type == "STAT" && "MainState" in m._fieldnames) {
-            this.flightmode = mavutil.mode_string_px4(m.MainState)
+        if (type == "STAT" && m._fieldnames.contains("MainState")) {
+            this.flightmode = Util.mode_string_px4(m.MainState!!)
         }
-        if (type == "PARM" && getattr(m, "Name", null) != null) {
-            this.params[m.Name] = m.Value
+        if (type == "PARM" && m.Name != null) {
+            this.params[m.Name!!] = m.Value
         }
         this._set_time(m)
     }
@@ -249,25 +256,26 @@ abstract class DFReader() {
      * recv the next message that matches the given condition
      * type can be a string or a list of strings
      */
-    fun recv_match( condition=null, type=null, blocking=false) : Any {
+    fun recv_match( condition=null, type=null, blocking=false) : DFMessage? {
+        var typeAsSet : HashSet<List<String>>? = null
         if (type != null) {
-            if (isinstance(type, str)) {
-                type = set([type])
-            } else if ( isinstance(type, list)) {
-                type = set(type)
+            if (type is String) {
+                typeAsSet = hashSetOf(listOf(type))
+            } else if (type is List<Any>) {
+                typeAsSet = hashSetOf(type)
             }
         }
         while (true) {
-            if ( type != null)
-                this.skip_to_type(type)
-            m = this.recv_msg()
+            if ( typeAsSet != null)
+                this.skip_to_type(typeAsSet)
+            val m = this.recv_msg()
             if (m == null) {
                 return null
             }
-            if (type != null && ! m.get_type() in type) {
+            if (typeAsSet != null && !typeAsSet.contains(m.get_type())) {
                 continue
             }
-            if (!mavutil.evaluate_condition(condition, this.messages)) {
+            if (!Util.evaluate_condition(condition, this.messages)) {
                 continue
             }
             return m
@@ -282,10 +290,10 @@ abstract class DFReader() {
 
     /**
      * convenient function for returning an arbitrary MAVLink
-    parameter with a default
+     * parameter with a default
      */
-    fun param( name, default=null) {
-        if (name not in this.params) {
+    fun param( name: String, default : Any? = null) : Any? {
+        if (!this.params.contains(name)) {
             return default
         }
         return this.params[name]
@@ -295,24 +303,24 @@ abstract class DFReader() {
      * return an array of tuples for all flightmodes in log. Tuple is (modestring, t0, t1)
      */
     fun flightmode_list() {
-        val tstamp = null
-        val fmode = null
+        var tstamp: Long?= null
+        val fmode : Any? = null //unknown type
         if (_flightmodes == null) {
             this._rewind()
-            this._flightmodes = []
-            types = set(["MODE"])
+            this._flightmodes = arrayOf()
+            val types = hashSetOf(listOf("MODE"))
             while(true) {
-                m = this.recv_match(type = types)
+                val m = this.recv_match(type = types)
                 if (m == null)
                     break
                 tstamp = m._timestamp
                 if (this.flightmode == fmode)
                     continue
-                if (len(this._flightmodes) > 0) {
+                if (this._flightmodes!!.size > 0) {
                     (mode, t0, t1) = this._flightmodes[-1]
                     this._flightmodes[-1] = (mode, t0, tstamp)
                 }
-                this._flightmodes.append((this.flightmode, tstamp, null))
+                this._flightmodes.add((this.flightmode, tstamp, null))
                 fmode = this.flightmode
             }
             if (tstamp != null) {

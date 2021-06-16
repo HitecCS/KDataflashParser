@@ -29,14 +29,14 @@
  */
 class DFReaderClock_gps_interpolated() : DFReaderClock() {
 
-    var msg_rate : List<String>
+    var msg_rate : HashMap<String, Int>
     var counts : List<String>
-    var counts_since_gps : List<Int>
+    var counts_since_gps : HashMap<String, Int>
 
     init {
-        msg_rate = listOf()
+        msg_rate = hashMapOf()
         counts = listOf()
-        counts_since_gps = listOf()
+        counts_since_gps = hashMapOf()
     }
 
     /**
@@ -44,22 +44,22 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
      */
     override fun rewind_event() {
         counts = listOf()
-        counts_since_gps = listOf()
+        counts_since_gps = hashMapOf()
     }
 
-    fun message_arrived( m) {
-        var type = m.get_type()
-        if (type not in self . counts) {
+    fun message_arrived(m : DFMessage) {
+        val type = m.get_type()
+        if (!counts.contains(type)) {
             counts[type] = 1
         } else {
             counts[type] += 1
         }
         // this preserves existing behaviour -but should we be doing this
         // if type == "GPS"?
-        if (type not in self . counts_since_gps) {
+        if (!counts_since_gps.contains(type)) {
             counts_since_gps[type] = 1
         } else {
-            counts_since_gps[type] += 1
+            counts_since_gps[type] = counts_since_gps[type]?.plus(1)!!
         }
 
         if( type == "GPS" || type == "GPS2") {
@@ -68,10 +68,10 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
     }
 
     // adjust time base from GPS message
-    fun gps_message_arrived( m) {
+    fun gps_message_arrived( m: DFMessage) {
         // msec - style GPS message?
-        var gps_week = getattr(m, "Week", null)
-        var gps_timems = getattr(m, "TimeMS", null)
+        var gps_week : Double = getattr(m, "Week", null)
+        var gps_timems : Int = getattr(m, "TimeMS", null)
         if (gps_week == null) {
             // usec - style GPS message?
             gps_week = getattr(m, "GWk", null)
@@ -102,7 +102,7 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
 
         for (type in counts_since_gps) {
             var rate = counts_since_gps[type] / deltat
-            if (rate > msg_rate.get(type, 0)) {
+            if (rate > msg_rate.get(type, 0)!!) {
                 msg_rate[type] = rate
             }
         }
@@ -113,12 +113,12 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
 
     }
 
-    fun set_message_timestamp( m) {
-        rate = msg_rate.get(m.fmt.name, 50.0)
-        if (int(rate) == 0) {
+    fun set_message_timestamp( m: DFMessage) {
+        var rate = msg_rate[m.fmt.name] ?: 50
+        if (rate == 0)
             rate = 50
-        }
-        count = counts_since_gps.get(m.fmt.name, 0)
-        m._timestamp = timebase + count / rate
+
+        val count = counts_since_gps[m.fmt.name] ?: 0
+        m._timestamp = (timebase + count / rate).toLong()
     }
 }

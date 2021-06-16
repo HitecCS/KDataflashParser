@@ -38,12 +38,12 @@ class DFReaderClock_px4() : DFReaderClock() {
     /**
      * work out time basis for the log - PX4 native
      */
-    fun find_time_base( gps) {
+    fun find_time_base( gps : DFMessage) {
         val t = gps.GPSTime * 1.0e-6
         timebase = t - px4_timebase
     }
 
-    fun set_px4_timebase( time_msg) {
+    fun set_px4_timebase( time_msg: DFMessage) {
         px4_timebase = time_msg.StartTime * 1.0e-6
     }
 

@@ -1,4 +1,6 @@
+import jdk.internal.org.objectweb.asm.tree.analysis.Value
 import java.lang.Math.round
+import kotlin.reflect.KClass
 
 /*
  * DFMessage
@@ -29,6 +31,12 @@ import java.lang.Math.round
 class DFMessage(val fmt: DFFormat, val _elements: Array<Float>, val _apply_multiplier : Boolean, var _parent: DFReader) {
     var _fieldnames : List<String> = fmt.columnsArr
     var _timestamp : Long = 0L
+    var Message: String? = null
+    var Mode : Any? = null
+    var ModeNum : Int? = null
+    var MainState: Int? = null
+    var Name: String? = null
+    var Value: Any? = null
 
     fun to_dict() : HashMap<String, String>{
         val d = hashMapOf ( "mavpackettype" to fmt.name )
@@ -39,10 +47,14 @@ class DFMessage(val fmt: DFFormat, val _elements: Array<Float>, val _apply_multi
         return d
     }
 
+    fun __getattr__(field: String) : Pair<Any, KClass<out Any>>  {
+        return __getattr__(field, null)
+    }
+
     /**
      * override field getter
      */
-    fun __getattr__(field: String) : Any {
+    fun __getattr__(field: String, default : Any?) : Pair<Any, KClass<out Any>> {
         var i = 0
         try {
             i = fmt.colhash[field]!!
@@ -50,37 +62,42 @@ class DFMessage(val fmt: DFFormat, val _elements: Array<Float>, val _apply_multi
             throw java.lang.Exception(field)
         }
 
-        var v : Any? = null
+        var v = default
+        var kClass : KClass<out Any>? = null
         if (_elements[i] is ByteArray) {
             v = _elements[i].decode("utf-8")
+            kClass = ByteArray::class
         } else {
             v = _elements[i]
+            kClass = Array<Float>::class
         }
+
         if (fmt.format[i] == 'a') {
             //Squeltch
         } else if (fmt.format[i] != 'M' || _apply_multiplier) {
-            v = fmt.msg_types[i](v)
+            v = v as fmt.msg_types[i]
+            kClass = fmt.msg_types[i]
         }
         if (fmt.msg_types[i] == String::class) {
             v = Util.null_term(v)
         }
         if (fmt.msg_mults[i] != null && _apply_multiplier) {
-            v *= fmt.msg_mults[i]
+            v = (v as Double) * fmt.msg_mults[i]!!
         }
-        return v
+        return Pair(v!!, kClass)
     }
 
 
     /**
      * override field setter
      */
-    fun __setattr__( field: String, v) {
+    fun __setattr__( field: String, v : Any) {
         if (!field[0].isUpperCase() || !fmt.colhash.containsKey(field)) {
             super.__setattr__(field, v)
         } else {
             val i = fmt.colhash[field]
             if (fmt.msg_mults[i!!] != null && _apply_multiplier) {
-                v /= fmt.msg_mults[i]
+                v = (v as Double) / fmt.msg_mults[i]
             }
             _elements[i] = v
         }
@@ -136,7 +153,7 @@ class DFMessage(val fmt: DFFormat, val _elements: Array<Float>, val _apply_multi
                 v /= mul
                 v = Int(round(v))
             }
-            values.append(v)
+            values.add(v)
         }
 
         var ret1 = struct.pack("BBB", 0xA3, 0x95, fmt.type)
@@ -166,6 +183,6 @@ class DFMessage(val fmt: DFFormat, val _elements: Array<Float>, val _apply_multi
         if (!_parent.messages.contains(k)) {
             throw java.lang.Exception("IndexError")
         }
-        return _parent.messages[k]
+        return _parent.messages[k]!!
     }
 }

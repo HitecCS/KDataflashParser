@@ -23,7 +23,7 @@
  * Released under GNU GPL version 3 or later
  * Partly based on SDLog2Parser by Anton Babushkin
  */
-open class DFReaderClock() {
+abstract class DFReaderClock() {
 
     var timebase : Int = 0
     var timestamp : Int
@@ -44,11 +44,13 @@ open class DFReaderClock() {
         timebase = base
     }
 
-    fun message_arrived( m : String) {
+    fun message_arrived( m : DFMessage) {
 //        pass
     }
 
     open fun rewind_event() {
 //        pass
     }
+
+    abstract fun set_message_timestamp(m : DFMessage)
 }
