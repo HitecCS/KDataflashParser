@@ -1,3 +1,7 @@
+import java.io.BufferedReader
+import java.io.File
+import java.io.FileReader
+
 /*
  * Util, a utility class for this project
  * Copyright (C) 2021 Hitec Commercial Solutions
@@ -178,57 +182,61 @@ class Util {
          * return true if a file appears to be a valid text log
          * from: DFReader.py
          */
-        fun DFReader_is_text_log(filename: String) {
-            with open (filename, 'r') as f:
-            val isTextLog = (f.read(8000).find("FMT,") != -1)
+        fun DFReader_is_text_log(filename: String) : Boolean {
+            val br = BufferedReader(FileReader(filename))
+            try {
+                return br.readLine().contains("FMT")
+            } catch (e : Throwable) {
+                println(e.message)
+            }
 
-            return isTextLog
+            return false
         }
 
         /**
          * evaluation an expression
          * from: Python mavexpression.py
          */
-        fun evaluate_expression(expression, vars, nocondition = False) {
-            // first check for conditions which take the form EXPRESSION { CONDITION }
-            val v = Any?
-            if (expression[-1] == '}') {
-                startidx = expression.rfind('{')
-                if (startidx == -1) {
-                    return null
-                }
-                condition = expression[startidx + 1:-1]
-                expression = expression[:startidx]
-                try {
-                    v = eval(condition, globals(), vars)
-                } catch (e: Throwable) {
-                    return null
-                }
-                if (!nocondition and not v) {
-                    return null
-                }
-            }
-            try {
-                v = eval(expression, globals(), vars)
-            } catch (e: Throwable) {
-                return null
-            }
-            return v
-        }
+//        fun evaluate_expression(expression, vars, nocondition = False) {
+//            // first check for conditions which take the form EXPRESSION { CONDITION }
+//            val v = Any?
+//            if (expression[-1] == '}') {
+//                startidx = expression.rfind('{')
+//                if (startidx == -1) {
+//                    return null
+//                }
+//                condition = expression[startidx + 1:-1]
+//                expression = expression[:startidx]
+//                try {
+//                    v = eval(condition, globals(), vars)
+//                } catch (e: Throwable) {
+//                    return null
+//                }
+//                if (!nocondition and not v) {
+//                    return null
+//                }
+//            }
+//            try {
+//                v = eval(expression, globals(), vars)
+//            } catch (e: Throwable) {
+//                return null
+//            }
+//            return v
+//        }
 
 
         /**
          * evaluation a conditional (boolean) statement
          * from: Python mavutil.py
          */
-        fun evaluate_condition(condition, vars): Boolean {
-            if (condition == null)
-                return true
-            var v = evaluate_expression(condition, vars)
-            if (v == null)
-                return false
-            return v
-        }
+//        fun evaluate_condition(condition, vars): Boolean {
+//            if (condition == null)
+//                return true
+//            var v = evaluate_expression(condition, vars)
+//            if (v == null)
+//                return false
+//            return v
+//        }
 
         /**
          * return dictionary mapping mode numbers to name, or None if unknown
@@ -280,6 +288,10 @@ class Util {
 
         fun mode_string_px4(MainState : Int) : String {
             return if(mainstate_mapping_px4.containsKey(MainState)) mainstate_mapping_px4[MainState]!! else "Unknown"
+        }
+
+        fun null_term(str : String) : String {
+            return str + ""
         }
     }
 }

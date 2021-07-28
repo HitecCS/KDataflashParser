@@ -35,7 +35,7 @@ abstract class DFReaderClock() {
     /**
      * convert GPS week and TOW to a time in seconds since 1970
      */
-    fun _gpsTimeToTime( week : Double, msec: Int) : Double {
+    fun _gpsTimeToTime( week : Int, msec: Int) : Double {
         val epoch = 86400 * (10 * 365 + ((1980 - 1969) / 4) + 1 + 6 - 2)
         return epoch + 86400 * 7 * week + msec * 0.001 - 18
     }
@@ -44,7 +44,7 @@ abstract class DFReaderClock() {
         timebase = base
     }
 
-    fun message_arrived( m : DFMessage) {
+    open fun message_arrived(m : DFMessage) {
 //        pass
     }
 

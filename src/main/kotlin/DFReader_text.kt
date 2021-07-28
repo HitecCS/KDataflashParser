@@ -1,4 +1,7 @@
 import java.io.File
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashSet
 
 /*
  * DFReader_text
@@ -30,18 +33,19 @@ import java.io.File
  * parse a text dataflash file
  */
 class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallback: ProgressCallback?) : DFReader() {
-    var filename : String
-    var zero_time_base : Boolean
-    var progress_callback : ProgressCallback?
-    var fileLines : List<String>
-    var data_len : Int
-    var data_map : Any?
-    var offset = Int
-    var delimeter : String
-    var offsets = arrayOf<Int>()
+    var filename: String
+    var zero_time_base: Boolean
+    var progress_callback: ProgressCallback?
+    var data_len: Int
+    var fileLines: List<String>
+    var data_map: String = ""
+    var offset: Int
+    var delimeter: String
+    var offsets = hashMapOf<String,ArrayList<Int>>()
+    var type_list : HashSet<String>? = null
 
-    var formats : HashMap<String, DFFormat>
-    var id_to_name : HashMap<Int, String>
+    var formats: HashMap<String, DFFormat>
+    var id_to_name: HashMap<Int, String>
 
     init {
         this.filename = filename
@@ -51,12 +55,16 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         // read the whole file into memory for simplicity
         fileLines = File(filename).readLines()
         data_len = fileLines.size
-        data_map = mmap.mmap(filehandle.fileno(), data_len, null, mmap.ACCESS_READ)
+        data_map = ""
         offset = 0
         delimeter = ", "
 
-       formats = hashMapOf(Pair("FMT", DFFormat(0x80, "FMT", 89, "BBnNZ", "Type,Length,Name,Format,Columns")))
-        id_to_name = hashMapOf(Pair( 0x80 , "FMT" ))
+        fileLines.forEach {
+            data_map += it//.split(delimeter))
+        }
+
+        formats = hashMapOf(Pair("FMT", DFFormat(0x80, "FMT", 89, "BBnNZ", "Type,Length,Name,Format,Columns")))
+        id_to_name = hashMapOf(Pair(0x80, "FMT"))
         _rewind()
         _zero_time_base = zero_time_base
         init_clock()
@@ -67,12 +75,12 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
     /**
      * rewind to start of log
      */
-     fun _rewind(){
+    override fun _rewind() {
         super._rewind()
         // find the first valid line
-        offset = data_map.find(b"FMT, ")
+        offset = findNextTag("FMT, ", null, null)
         if (offset == -1) {
-            offset = data_map.find(b"FMT,")
+            offset = findNextTag("FMT,", null, null)
             if (offset != -1) {
                 delimeter = ","
             }
@@ -87,32 +95,35 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         _rewind()
     }
 
-    var counts = arrayOf<Int>()
+    var counts = hashMapOf<String,Int>()
     var _count = 0
     var ofs = 0
+
     /**
      * initialise arrays for fast recv_match()
      */
-    fun init_arrays(progress_callback : ProgressCallback?) {
-        offsets = arrayOf<Int>()
-        counts = arrayOf<Int>()
+    fun init_arrays(progress_callback: ProgressCallback?) {
+        offsets = hashMapOf<String,ArrayList<Int>>()
+        counts = hashMapOf<String,Int>()
         _count = 0
         ofs = offset
         var pct = 0
 
-        while( ofs + 16 < data_len) {
-            mtype = data_map[ofs:ofs+4]
-            if mtype[3] == b',':
-            mtype = mtype[0:3]
-            if not mtype in self . offsets {
+        while (ofs + 16 < data_len) {
+            var mtype = data_map.substring(ofs, ofs + 4)
+            if (mtype[3] == ',') {
+                mtype = mtype.substring(0, 3)
+            }
+            if (!offsets.containsKey(mtype)) {
                 counts[mtype] = 0
-                offsets[mtype] = []
+                offsets[mtype] = arrayListOf<Int>()
                 offset = ofs
                 _parse_next()
             }
-            offsets[mtype].append(ofs)
+            offsets[mtype]?.add(ofs)
 
-            counts[mtype] += 1
+            if(counts.containsKey(mtype))
+                counts[mtype] = counts[mtype]!! + 1
 
             if (mtype == "FMT") {
                 offset = ofs
@@ -124,20 +135,21 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
                 _parse_next()
             }
 
-            ofs = data_map.find(b"\n", ofs)
+            ofs = data_map.indexOf("\n", ofs)
             if (ofs == -1) {
                 break
             }
             ofs += 1
-            new_pct = (100 * ofs) // data_len
+            val new_pct = (100 * ofs) // data_len
             if (progress_callback != null && new_pct != pct) {
                 progress_callback.update(new_pct)
                 pct = new_pct
             }
         }
 
-        for (mtype in counts.keys()) {
-            _count += counts[mtype]
+
+        for (key in counts.keys) {
+            _count += counts[key]!!
         }
         offset = 0
     }
@@ -145,60 +157,60 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
     /**
      * skip fwd to next msg matching given type set
      */
-    fun skip_to_type(type) {
+    fun skip_to_type(type : String) {
 
-        if (type_list is null) {
-// always add some key msg types so we can track flightmode, params etc
-            type_list = type.copy()
-            type_list.update(set(["MODE", "MSG", "PARM", "STAT"]))
-            type_list = list(type_list)
-            indexes = []
-            type_nums = []
-            for (t in type_list) {
-                indexes.append(0)
-            }
-        }
-        smallest_index = -1
-        smallest_offset = data_len
-        for (i in range(len(type_list))) {
-            mtype = type_list[i]
-            if (not mtype in self . counts) {
-                continue
-            }
-            if (indexes[i] >= counts[mtype]) {
-                continue
-            }
-            ofs = offsets[mtype][indexes[i]]
-            if (ofs < smallest_offset) {
-                smallest_offset = ofs
-                smallest_index = i
-            }
-        }
-        if (smallest_index >= 0) {
-            indexes[smallest_index] += 1
-            offset = smallest_offset
-        }
+//        if (type_list == null) {
+//// always add some key msg types so we can track flightmode, params etc
+//            type_list = type.copy()
+//            type_list.update(hashSetOf(["MODE", "MSG", "PARM", "STAT"]))
+//            type_list = list(type_list)
+//            indexes = []
+//            type_nums = []
+//            for (t in type_list) {
+//                indexes.append(0)
+//            }
+//        }
+//        var smallest_index = -1
+//        var smallest_offset = data_len
+//        for (i in 0..type_list!!.size) {
+//            mtype = type_list[i]
+//            if (not mtype in self . counts) {
+//                continue
+//            }
+//            if (indexes[i] >= counts[mtype]) {
+//                continue
+//            }
+//            ofs = offsets[mtype][indexes[i]]
+//            if (ofs < smallest_offset) {
+//                smallest_offset = ofs
+//                smallest_index = i
+//            }
+//        }
+//        if (smallest_index >= 0) {
+//            indexes[smallest_index] += 1
+//            offset = smallest_offset
+//        }
     }
 
     /**
      * read one message, returning it as an object
      */
-    fun _parse_next() {
+    override fun _parse_next() : DFMessage? {
+
+        var elements = arrayListOf<String>()
 
         while (true) {
-            endline = data_map.find(b'\n', offset)
+            var endline = data_map.indexOf('\n', offset)
             if (endline == -1) {
                 endline = data_len
             }
             if (endline < offset) {
                 break
             }
-            s = data_map[offset:endline].rstrip()
-            if (sys.version_info.major >= 3)
-                s = s.decode("utf-8")
-            elements = s.split(delimeter)
+            val s = data_map.substring(offset,endline).trimEnd()
+            elements = ArrayList(s.split(delimeter))
             offset = endline + 1
-            if (len(elements) >= 2) {
+            if (elements.size >= 2) {
                 // this_line is good
                 break
             }
@@ -209,65 +221,69 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         }
 
 // cope with empty structures
-        if (len(elements) == 5 && elements[-1] == ',') {
-            elements[-1] = ''
-            elements.append('')
+        if (elements.size == 5 && elements[elements.size - 1] == ",") {
+            val lastIndex = elements.size - 1
+            elements[lastIndex] = ""
+            elements.add("")
         }
 
-        percent = 100.0 * (offset / float(data_len))
+        percent = (100.toFloat() * (offset.toFloat() / data_len.toFloat())).toInt()
 
-        msg_type = elements[0]
+        val msg_type = elements[0]
 
-        if (msg_type not in formats) {
+        if (!formats.contains(msg_type)) {
             return _parse_next()
         }
 
-        fmt = formats[msg_type]
+        val fmt = formats[msg_type]
 
-        if (len(elements) < len(fmt.format)+1) {
+        if (elements.size < fmt!!.format.length + 1) {
             // not enough columns
             return _parse_next()
         }
 
-        elements = elements[1:]
+        elements = ArrayList(elements.subList(1, elements.size))
 
-        name = fmt.name.rstrip("\0")
+        val name = fmt.name//.rstrip("\0")
         if (name == "FMT") {
             // add to formats
             // name, len, format, headings
-            ftype = int(elements[0])
-            fname = elements[2]
+            val ftype = elements[0].toInt()
+            val fname = elements[2]
             if (delimeter == ",") {
-                elements = elements[0:4]+[",".join(elements[4:])]
+                val last = elements.subList(4, elements.size).joinToString(",")
+                elements = ArrayList(elements.subList(0,4))
+                elements.add(last)
             }
-            columns = elements[4]
+            var columns = elements[4]
             if (fname == "FMT" && columns == "Type,Length,Name,Format") {
                 // some logs have the 'Columns' column missing from text logs
                 columns = "Type,Length,Name,Format,Columns"
             }
-            new_fmt = DFFormat(
+            val new_fmt = DFFormat(
                 ftype,
                 fname,
-                int(elements[1]),
+                elements[1].toInt(),
                 elements[3],
                 columns,
-                oldfmt = formats.get(ftype, null)
+                oldfmt = formats[fname]
             )
             formats[fname] = new_fmt
             id_to_name[ftype] = fname
         }
+        var m : DFMessage? = null
         try {
-            m = DFMessage(fmt, elements, false, self)
-        } catch (valError: ValueError) {
+            m = DFMessage(fmt, elements, false, this)
+        } catch (valError: Throwable) {
             return _parse_next()
         }
 
         if (m.get_type() == "FMTU") {
-            fmtid = getattr(m, "FmtType", null)
-            if (fmtid != null && fmtid in id_to_name) {
-                fmtu = formats[id_to_name[fmtid]]
-                fmtu.set_unit_ids(getattr(m, "UnitIds", null))
-                fmtu.set_mult_ids(getattr(m, "MultIds", null))
+            val fmtid = m.__getattr__( "FmtType", null)
+            if (fmtid.first != null && id_to_name.containsKey(fmtid.first as Int)) {
+                val fmtu = formats[id_to_name[fmtid.first as Int]!!]!!
+                fmtu.set_unit_ids(m.__getattr__("UnitIds", null).first as String)
+                fmtu.set_mult_ids(m.__getattr__( "MultIds", null).first as String)
             }
         }
         _add_msg(m)
@@ -278,20 +294,35 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
     /**
      * get the last timestamp in the log
      */
-    fun last_timestamp() {
-        highest_offset = 0
-        for (mtype in counts.keys()) {
-            if (len(offsets[mtype]) == 0) {
+    fun last_timestamp() : Long {
+        var highest_offset = 0
+        for (mtype in counts.keys) {
+            if (offsets[mtype]!!.size == 0) {
                 continue
             }
-            ofs = offsets[mtype][-1]
+            ofs = offsets[mtype]!![offsets.size-1]
             if (ofs > highest_offset) {
                 highest_offset = ofs
             }
         }
         offset = highest_offset
-        m = recv_msg()
-        return m._timestamp
+        val m = recv_msg()
+        return m!!._timestamp
+    }
+
+    /**
+     * Finds and returns the first index of the tag in the given range
+     */
+    fun findNextTag(tag: String, start: Int?, end: Int?): Int {
+        val a = start ?: 0
+        val z = end ?: fileLines.size
+        for (i in a..z) {
+//            if (fileLines[i][0].startsWith(tag)) {
+            if (fileLines[i].startsWith(tag)) {
+                return i
+            }
+        }
+        return -1
     }
 
 }

@@ -32,11 +32,11 @@ class DFReaderClock_usec(): DFReaderClock() {
     /**
      * work out time basis for the log - even newer style
      */
-    fun find_time_base( gps: DFMessage, first_us_stamp: Double) {
-        val t = _gpsTimeToTime(gps.GWk, gps.GMS)
-        set_timebase(t - gps.TimeUS * 0.000001)
+    fun find_time_base( gps: DFMessage, first_us_stamp: Int) {
+        val t = _gpsTimeToTime(gps.GWk!!, gps.GMS!!)
+        set_timebase((t - gps.TimeUS!! * 0.000001).toInt())
 //         this ensures FMT messages get appropriate timestamp:
-        timestamp = timebase + first_us_stamp * 0.000001
+        timestamp = (timebase + first_us_stamp * 0.000001).toInt()
     }
 
     /**
@@ -56,26 +56,26 @@ class DFReaderClock_usec(): DFReaderClock() {
         if (type_has_good_TimeMS (m.get_type())) {
             return false
         }
-        if ("TimeMS" != m._fieldnames[0]) {
+        if ("TimeMS" != m.fieldnames[0]) {
             return false
         }
-        if (timebase + m.TimeMS * 0.001 < timestamp) {
+        if (timebase + m.TimeMS!! * 0.001 < timestamp) {
             return false
         }
         return true
     }
 
-    fun set_message_timestamp( m: DFMessage) {
-        if("TimeUS" == m._fieldnames[0]) {
+    override fun set_message_timestamp(m: DFMessage) {
+        if("TimeUS" == m.fieldnames[0]) {
 //             only format messages don 't have a TimeUS in them...
-            m._timestamp = timebase + m.TimeUS * 0.000001
+            m._timestamp = (timebase + m.TimeUS!! * 0.000001).toLong()
         } else if(should_use_msec_field0(m)) {
 //             ... in theory. I expect there to be some logs which are not
 //             "pure":
-            m._timestamp = timebase + m.TimeMS * 0.001
+            m._timestamp = (timebase + m.TimeMS!! * 0.001).toLong()
         } else {
-            m._timestamp = timestamp
+            m._timestamp = timestamp.toLong()
         }
-        timestamp = m._timestamp
+        timestamp = m._timestamp.toInt()
     }
 }

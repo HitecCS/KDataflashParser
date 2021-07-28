@@ -101,7 +101,7 @@ class DFFormat(
             }
         }
 
-        for (i in 0..columnsArr.size) {
+        for (i in columnsArr.indices) {
             colhash[columnsArr[i]] = i
         }
 

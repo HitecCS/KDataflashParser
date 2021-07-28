@@ -33,20 +33,20 @@ class DFReaderClock_msec() : DFReaderClock() {
     /**
      * work out time basis for the log - new style
      */
-    fun find_time_base( gps, first_ms_stamp) {
-        val t = _gpsTimeToTime(gps.Week, gps.TimeMS)
-        set_timebase(t - gps.T * 0.001)
-        timestamp = timebase + first_ms_stamp * 0.001
+    fun find_time_base( gps : DFMessage, first_ms_stamp : Int) {
+        val t = _gpsTimeToTime(gps.Week!!, gps.TimeMS!!)
+        set_timebase((t - gps.T!! * 0.001).toInt())
+        timestamp = (timebase + first_ms_stamp * 0.001).toInt()
     }
 
-    fun set_message_timestamp( m ) {
-        if ("TimeMS" == m._fieldnames[0]) {
-            m._timestamp = timebase + m.TimeMS * 0.001
-        } else if (m . get_type () in ["GPS", "GPS2"]) {
-            m._timestamp = timebase + m.T * 0.001
+    override fun set_message_timestamp(m : DFMessage) {
+        if ("TimeMS" == m.fieldnames[0]) {
+            m._timestamp = (timebase + m.TimeMS!! * 0.001).toLong()
+        } else if (listOf("GPS", "GPS2").contains(m.get_type())) {
+            m._timestamp = (timebase + m.T!! * 0.001).toLong()
         } else {
-            m._timestamp = timestamp
+            m._timestamp = timestamp.toLong()
         }
-        timestamp = m._timestamp
+        timestamp = m._timestamp.toInt()
     }
 }
