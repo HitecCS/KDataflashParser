@@ -6,7 +6,8 @@ fun main() {
 
     val filename = dataFlashFile.absolutePath.toString()
     val dfParser = if (filename.endsWith(".log")) {
-        DFReader_text(filename, null, null)
+        val dfreader = DFReader_text(filename, null, null)
+        println(dfreader.toString())
     } else {
 //        DFReader_binary(filename, null, null)
     }

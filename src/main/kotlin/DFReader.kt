@@ -37,7 +37,7 @@ abstract class DFReader() {
     var messages = hashMapOf<String, Any>() //can be DFReader or DFMessage
     var _zero_time_base = false
     var flightmode : Any? = null
-    var percent : Int = 0
+    var percent : Float = 0f
 
     abstract fun _parse_next() : DFMessage?
 
@@ -48,12 +48,12 @@ abstract class DFReader() {
         // copy they can copy.copy it!
         messages.clear()
         messages["MAV"] = this
-        if (_flightmodes != null && _flightmodes!!.size > 0) {
+        if (_flightmodes != null && _flightmodes!!.isNotEmpty()) {
             flightmode = _flightmodes!![0][0]
         } else {
             flightmode = "UNKNOWN"
         }
-        percent = 0
+        percent = 0f
         clock?.rewind_event()
     }
 
@@ -83,7 +83,7 @@ abstract class DFReader() {
      * work out time basis for the log
      */
     fun init_clock() {
-
+        println("init_clock")
         _rewind()
 
         // speculatively create a gps clock in case we don't find anything better
@@ -186,7 +186,7 @@ abstract class DFReader() {
     fun _set_time(m: DFMessage) {
         // really just left here for profiling
         m._timestamp = timestamp.toLong()
-        if (m.fieldnames.size > 0 && this.clock != null)
+        if (m.fieldnames.isNotEmpty() && this.clock != null)
             clock!!.set_message_timestamp(m)
     }
 

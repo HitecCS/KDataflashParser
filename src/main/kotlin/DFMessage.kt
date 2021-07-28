@@ -85,8 +85,9 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
             //Squeltch
         } else if (fmt.format[i] != 'M' || _apply_multiplier) {
             v = when(fmt.msg_types[i]) {
-                Int::class -> v as Int
-                Double::class -> v as Double
+                Int::class -> v.toInt()
+                Double::class -> v.toDouble()
+                Boolean::class -> v.toString().lowercase().toBoolean()
                 String::class -> v as String
                 else -> v
 

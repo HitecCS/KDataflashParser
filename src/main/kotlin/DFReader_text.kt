@@ -53,15 +53,25 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         progress_callback = progressCallback
 //        DFReader.__init__()
         // read the whole file into memory for simplicity
+        println("reading in log")
         fileLines = File(filename).readLines()
+
+        println("Read ${fileLines.size} lines")
         data_len = fileLines.size
         data_map = ""
         offset = 0
         delimeter = ", "
 
+        println("combining lines into a single String")
+        val builder = StringBuilder()
         fileLines.forEach {
-            data_map += it//.split(delimeter))
+            builder.append(it)
+            builder.append("\n")
+//            data_map += it//.split(delimeter))
+//            data_map += "\n"
         }
+        data_map = builder.toString()
+        println("finished combining")
 
         formats = hashMapOf(Pair("FMT", DFFormat(0x80, "FMT", 89, "BBnNZ", "Type,Length,Name,Format,Columns")))
         id_to_name = hashMapOf(Pair(0x80, "FMT"))
@@ -76,6 +86,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
      * rewind to start of log
      */
     override fun _rewind() {
+        println("_rewind()")
         super._rewind()
         // find the first valid line
         offset = findNextTag("FMT, ", null, null)
@@ -103,6 +114,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
      * initialise arrays for fast recv_match()
      */
     fun init_arrays(progress_callback: ProgressCallback?) {
+        println("init_arrays")
         offsets = hashMapOf<String,ArrayList<Int>>()
         counts = hashMapOf<String,Int>()
         _count = 0
@@ -200,13 +212,14 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         var elements = arrayListOf<String>()
 
         while (true) {
-            var endline = data_map.indexOf('\n', offset)
+            var endline = data_map.indexOf("\n", offset)
             if (endline == -1) {
                 endline = data_len
+                if (endline < offset) {
+                    break
+                }
             }
-            if (endline < offset) {
-                break
-            }
+
             val s = data_map.substring(offset,endline).trimEnd()
             elements = ArrayList(s.split(delimeter))
             offset = endline + 1
@@ -220,14 +233,14 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
             return null
         }
 
-// cope with empty structures
+        // cope with empty structures
         if (elements.size == 5 && elements[elements.size - 1] == ",") {
             val lastIndex = elements.size - 1
             elements[lastIndex] = ""
             elements.add("")
         }
 
-        percent = (100.toFloat() * (offset.toFloat() / data_len.toFloat())).toInt()
+        percent = 100f * (offset.toFloat() / data_len.toFloat())
 
         val msg_type = elements[0]
 
@@ -315,7 +328,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
      */
     fun findNextTag(tag: String, start: Int?, end: Int?): Int {
         val a = start ?: 0
-        val z = end ?: fileLines.size
+        val z = end ?: fileLines.size-1
         for (i in a..z) {
 //            if (fileLines[i][0].startsWith(tag)) {
             if (fileLines[i].startsWith(tag)) {

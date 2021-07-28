@@ -106,7 +106,7 @@ class DFFormat(
         }
 
         val a_indexes = arrayListOf<Int>()
-        for (i in 0..msg_fmts.size) {
+        for (i in 0 until msg_fmts.size) {
             if (msg_fmts[i] == 'a') {
                 a_indexes.add(i)
             }
@@ -138,6 +138,6 @@ class DFFormat(
     }
 
     override fun toString(): String {
-        return String.format("DFFormat(%s,%s,%s,%s)", type, name, format, columns)
+        return String.format("DFFormat(%s,%s,%s,[%s])", type, name, format, columns)
     }
 }
