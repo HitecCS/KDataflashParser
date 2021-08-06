@@ -40,7 +40,7 @@ class DFReaderClock_px4() : DFReaderClock() {
      */
     fun find_time_base( gps : DFMessage) {
         val t = gps.GPSTime!! * 1.0e-6
-        timebase = t.toInt() - px4_timebase
+        timebase = t.toFloat() - px4_timebase
     }
 
     fun set_px4_timebase( time_msg: DFMessage) {

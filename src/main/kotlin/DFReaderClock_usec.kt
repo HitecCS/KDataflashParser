@@ -34,9 +34,9 @@ class DFReaderClock_usec(): DFReaderClock() {
      */
     fun find_time_base( gps: DFMessage, first_us_stamp: Int) {
         val t = _gpsTimeToTime(gps.GWk!!, gps.GMS!!)
-        set_timebase((t - gps.TimeUS!! * 0.000001).toInt())
+        set_timebase((t - gps.TimeUS!! * 0.000001).toFloat())
 //         this ensures FMT messages get appropriate timestamp:
-        timestamp = (timebase + first_us_stamp * 0.000001).toInt()
+        timestamp = (timebase + first_us_stamp * 0.000001).toFloat()
     }
 
     /**
@@ -76,6 +76,6 @@ class DFReaderClock_usec(): DFReaderClock() {
         } else {
             m._timestamp = timestamp.toLong()
         }
-        timestamp = m._timestamp.toInt()
+        timestamp = m._timestamp.toFloat()
     }
 }

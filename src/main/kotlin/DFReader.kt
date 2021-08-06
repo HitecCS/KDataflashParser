@@ -94,10 +94,12 @@ abstract class DFReader() {
         var px4_msg_gps : DFMessage? = null
         var gps_interp_msg_gps1 : DFMessage? = null
         var first_us_stamp : Int? = null
-        var first_ms_stamp : Int? = null//guessed type
+        var first_ms_stamp : Float? = null//guessed type
 
         var have_good_clock = false
+        var count = 0
         while (true) {
+            count++
             val m = recv_msg()
             if (m == null) {
                 break
@@ -115,7 +117,7 @@ abstract class DFReader() {
             }
 
             if (type == "GPS" || type == "GPS2") {
-                if (m.TimeUS != 0 && m.GWk != 0) {//   everything-usec-timestamped
+                if (m.TimeUS != 0 && m.GWk != 0f) {//   everything-usec-timestamped
                     init_clock_usec()
                     if (!_zero_time_base ) {
                         (clock as DFReaderClock_usec).find_time_base(m, first_us_stamp!!)
@@ -125,7 +127,7 @@ abstract class DFReader() {
                 }
                 if ( m.T != 0 && m.__getattr__("Week", 0).first as Int != 0) {//   GPS is msec-timestamped
                     if (first_ms_stamp == null) {
-                        first_ms_stamp = m.__getattr__( "T", 0).first as Int
+                        first_ms_stamp = m.__getattr__( "T", 0).first as Float
                     }
                     init_clock_msec()
                     if (!_zero_time_base) {
@@ -134,10 +136,10 @@ abstract class DFReader() {
                     have_good_clock = true
                     break
                 }
-                if (m.GPSTime != 0) {  // px4-style-only
+                if (m.GPSTime != 0f) {  // px4-style-only
                     px4_msg_gps = m
                 }
-                if (m.Week != 0) {
+                if (m.Week != 0f) {
                     if (gps_interp_msg_gps1 != null && (gps_interp_msg_gps1.TimeMS != m.TimeMS || gps_interp_msg_gps1.Week != m.Week)) {
 //                      we've received two distinct, non-zero GPS
 //                      packets without finding a decent clock to

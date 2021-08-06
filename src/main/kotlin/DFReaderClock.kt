@@ -25,22 +25,22 @@
  */
 abstract class DFReaderClock() {
 
-    var timebase : Int = 0
-    var timestamp : Int
+    var timebase : Float = 0f
+    var timestamp : Float
     init {
-        set_timebase(0)
-        timestamp = 0
+        set_timebase(0f)
+        timestamp = 0f
     }
 
     /**
      * convert GPS week and TOW to a time in seconds since 1970
      */
-    fun _gpsTimeToTime( week : Int, msec: Int) : Double {
+    fun _gpsTimeToTime( week : Float, msec: Float) : Double {
         val epoch = 86400 * (10 * 365 + ((1980 - 1969) / 4) + 1 + 6 - 2)
         return epoch + 86400 * 7 * week + msec * 0.001 - 18
     }
 
-    fun set_timebase( base : Int) {
+    fun set_timebase( base : Float) {
         timebase = base
     }
 

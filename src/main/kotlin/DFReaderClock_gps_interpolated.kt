@@ -94,7 +94,7 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
                 return
         }
 
-        val t = _gpsTimeToTime(gps_week.toInt(), gps_timems)
+        val t = _gpsTimeToTime(gps_week.toFloat(), gps_timems.toFloat())
 
         val deltat = t - timebase
         if (deltat <= 0)
@@ -107,7 +107,7 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
             }
         }
         msg_rate["IMU"] = 50
-        timebase = t.toInt()
+        timebase = t.toFloat()
         counts_since_gps = hashMapOf<String, Int>()
 
 

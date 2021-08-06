@@ -34,18 +34,70 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
     var _timestamp : Long = 0L
     var Message: String? = null
     var Mode : Any? = null
+
     var ModeNum : Int? = null
     var MainState: Int? = null
+
     var Name: String? = null
-    var Value: Any? = null
+
+    var Value: Any? = null//TODO
+
     var TimeUS : Int? = null
-    var TimeMS : Int? = null
-    var GWk : Int? = null
-    var GMS : Int? = null
+        get() {
+           return getIntFieldByName("TimeUS")
+        }
+    var TimeMS : Float? = null
+        get() {
+            return getFloatFieldByName("TimeMS")
+        }
+    var GWk : Float? = null
+        get() {
+            return getFloatFieldByName("GWk")
+        }
+    var GMS : Float? = null
+        get() {
+            return getFloatFieldByName("GMS")
+        }
     var T : Int? = null
-    var Week : Int? = null
-    var GPSTime : Int? = null
+        get() {
+            return getIntFieldByName("T")
+        }
+    var Week : Float? = null
+        get() {
+            return getFloatFieldByName("Week")
+        }
+    var GPSTime : Float? = null
+        get() {
+            return getFloatFieldByName("GPSTime")
+        }
     var StartTime : Long? = null
+        get() {
+            return getLongFieldByName("StartTime")
+        }
+
+    fun getIntFieldByName(name: String) : Int? {
+        val index = fieldnames.indexOf(name)
+        if(index != -1) {
+            return _elements[index].toInt()
+        }
+        return null
+    }
+
+    fun getLongFieldByName(name: String) : Long? {
+        val index = fieldnames.indexOf(name)
+        if(index != -1) {
+            return _elements[index].toLong()
+        }
+        return null
+    }
+
+    fun getFloatFieldByName(name: String) : Float? {
+        val index = fieldnames.indexOf(name)
+        if(index != -1) {
+            return _elements[index].toFloat()
+        }
+        return null
+    }
 
     fun to_dict() : HashMap<String, String> {
         val d = hashMapOf ( "mavpackettype" to fmt.name )
@@ -125,12 +177,12 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
                 "Name" -> Name = v as String
                 "Value" -> Value = v
                 "TimeUS" -> TimeUS = v as Int
-                "TimeMS" -> TimeMS = v as Int
-                "GWk" -> GWk = v as Int
-                "GMS" -> GMS = v as Int
+                "TimeMS" -> TimeMS = v as Float
+                "GWk" -> GWk = v as Float
+                "GMS" -> GMS = v as Float
                 "T" -> T = v as Int
-                "Week" -> Week = v as Int
-                "GPSTime" -> GPSTime = v as Int
+                "Week" -> Week = v as Float
+                "GPSTime" -> GPSTime = v as Float
                 "StartTime" -> StartTime = v as Long
             }
         } else {

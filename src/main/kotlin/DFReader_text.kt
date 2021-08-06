@@ -37,6 +37,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
     var zero_time_base: Boolean
     var progress_callback: ProgressCallback?
     var data_len: Int
+    var pythonLength: Int
     var fileLines: List<String>
     var data_map: String = ""
     var offset: Int
@@ -57,7 +58,13 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         fileLines = File(filename).readLines()
 
         println("Read ${fileLines.size} lines")
-        data_len = fileLines.size
+        var flength = 0
+        pythonLength = 0
+        fileLines.forEach {
+            flength += it.length
+            pythonLength += it.length + 2 // Not exactly sure why its 2 but I assume its formatting characters (File.tell() in python may count "\n\r")
+        }
+        data_len = flength
         data_map = ""
         offset = 0
         delimeter = ", "
@@ -121,7 +128,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         ofs = offset
         var pct = 0
 
-        while (ofs + 16 < data_len) {
+        while (ofs + 16 < data_map.length) {//data_len) {
             var mtype = data_map.substring(ofs, ofs + 4)
             if (mtype[3] == ',') {
                 mtype = mtype.substring(0, 3)
