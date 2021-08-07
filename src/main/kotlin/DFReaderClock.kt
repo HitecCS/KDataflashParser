@@ -25,11 +25,11 @@
  */
 abstract class DFReaderClock() {
 
-    var timebase : Float = 0f
-    var timestamp : Float
+    var timebase : Double = 0.0
+    var timestamp : Double
     init {
-        set_timebase(0f)
-        timestamp = 0f
+        set_timebase(0.0)
+        timestamp = 0.0
     }
 
     /**
@@ -40,7 +40,7 @@ abstract class DFReaderClock() {
         return epoch + 86400 * 7 * week + msec * 0.001 - 18
     }
 
-    fun set_timebase( base : Float) {
+    fun set_timebase( base : Double) {
         timebase = base
     }
 

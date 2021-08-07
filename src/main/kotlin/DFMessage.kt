@@ -33,14 +33,33 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
     var fieldnames : List<String> = fmt.columnsArr
     var _timestamp : Long = 0L
     var Message: String? = null
-    var Mode : Any? = null
+        get() {
+            return getStringFieldByName("Message")
+        }
+    var Mode : String? = null
+        get() {
+            return getStringFieldByName("Mode")
+        }
 
     var ModeNum : Int? = null
+        get() {
+            return getIntFieldByName("ModeNum")
+        }
+
     var MainState: Int? = null
+        get() {
+            return getIntFieldByName("MainState")
+        }
 
     var Name: String? = null
+        get() {
+            return getStringFieldByName("Name")
+        }
 
-    var Value: Any? = null//TODO
+    var Value: Float? = null//TODO
+        get() {
+            return getFloatFieldByName("Value")
+        }
 
     var TimeUS : Int? = null
         get() {
@@ -95,6 +114,14 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
         val index = fieldnames.indexOf(name)
         if(index != -1) {
             return _elements[index].toFloat()
+        }
+        return null
+    }
+
+    fun getStringFieldByName(name: String) : String? {
+        val index = fieldnames.indexOf(name)
+        if(index != -1) {
+            return _elements[index]
         }
         return null
     }
@@ -171,11 +198,11 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
                 "fieldnames" -> fieldnames = v as List<String>
                 "_timestamp" -> _timestamp = v as Long
                 "Message" -> Message = v as String
-                "Mode" -> Mode = v
+                "Mode" -> Mode = v as String
                 "ModeNum" -> ModeNum = v as Int
                 "MainState" -> MainState = v as Int
                 "Name" -> Name = v as String
-                "Value" -> Value = v
+                "Value" -> Value = v as Float
                 "TimeUS" -> TimeUS = v as Int
                 "TimeMS" -> TimeMS = v as Float
                 "GWk" -> GWk = v as Float

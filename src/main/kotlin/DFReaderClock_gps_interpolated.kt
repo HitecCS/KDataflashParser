@@ -107,7 +107,7 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
             }
         }
         msg_rate["IMU"] = 50
-        timebase = t.toFloat()
+        timebase = t
         counts_since_gps = hashMapOf<String, Int>()
 
 

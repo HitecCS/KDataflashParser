@@ -203,7 +203,7 @@ abstract class DFReader() {
         val type = m.get_type()
         this.messages[type] = m
         if (m.fmt.instance_field != null) {
-            val i = m.__getattr__(m.fmt.instance_field!!)
+            val i = m.__getattr__(m.fmt.instance_field!!).first
             this.messages[String.format("%s[%s]",type, i)] = m
         }
 
@@ -243,7 +243,7 @@ abstract class DFReader() {
             this.flightmode = Util.mode_string_px4(m.MainState!!)
         }
         if (type == "PARM" && m.Name != null) {
-            this.params[m.Name!!] = m.Value as Float
+            this.params[m.Name!!] = m.Value!!
         }
         this._set_time(m)
     }

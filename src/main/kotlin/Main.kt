@@ -6,8 +6,16 @@ fun main() {
 
     val filename = dataFlashFile.absolutePath.toString()
     val dfParser = if (filename.endsWith(".log")) {
-        val dfreader = DFReader_text(filename, null, null)
+        val callback = object : ProgressCallback {
+            override fun update(pct: Int) {
+                println("$pct")
+            }
+        }
+        val dfreader = DFReader_text(filename, null, callback)
         println(dfreader.toString())
+        val a = dfreader.allMessages
+        val b = a.last()
+        println(a)
     } else {
 //        DFReader_binary(filename, null, null)
     }

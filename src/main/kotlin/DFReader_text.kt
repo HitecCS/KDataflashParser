@@ -48,6 +48,35 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
     var formats: HashMap<String, DFFormat>
     var id_to_name: HashMap<Int, String>
 
+    var counts = hashMapOf<String,Int>()
+    var _count = 0
+    var ofs = 0
+
+    var allMessages = arrayListOf<DFMessage>()
+        get() {
+    //        var typeAtOffset = hashMapOf<o,String>()
+            if(field.isNotEmpty())
+                return field
+
+            var pct = 0
+            var nullCount = 0
+            while (offset < data_map.length) {
+
+                _parse_next()?.let {
+                    field.add(it)
+                } ?: run {
+                    nullCount++
+                }
+                val newPct = offset / data_map.length
+                if(pct != newPct) {
+                    pct = newPct
+                    println(newPct)
+                }
+            }
+            offset = 0
+            return field
+        }
+
     init {
         this.filename = filename
         this.zero_time_base = zero_based_time ?: false
@@ -113,9 +142,6 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         _rewind()
     }
 
-    var counts = hashMapOf<String,Int>()
-    var _count = 0
-    var ofs = 0
 
     /**
      * initialise arrays for fast recv_match()
@@ -141,8 +167,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
             }
             offsets[mtype]?.add(ofs)
 
-            if(counts.containsKey(mtype))
-                counts[mtype] = counts[mtype]!! + 1
+            counts[mtype] = counts[mtype]!! + 1
 
             if (mtype == "FMT") {
                 offset = ofs
@@ -159,7 +184,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
                 break
             }
             ofs += 1
-            val new_pct = (100 * ofs) // data_len
+            val new_pct = ((100 * ofs) / data_map.length).toInt()
             if (progress_callback != null && new_pct != pct) {
                 progress_callback.update(new_pct)
                 pct = new_pct
