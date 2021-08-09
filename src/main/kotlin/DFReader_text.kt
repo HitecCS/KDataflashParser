@@ -58,10 +58,10 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
             if(field.isNotEmpty())
                 return field
 
+            var count = 0
             var pct = 0
             var nullCount = 0
             while (offset < data_map.length) {
-
                 _parse_next()?.let {
                     field.add(it)
                 } ?: run {
@@ -72,6 +72,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
                     pct = newPct
                     println(newPct)
                 }
+                count ++
             }
             offset = 0
             return field

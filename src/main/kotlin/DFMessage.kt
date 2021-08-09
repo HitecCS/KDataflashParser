@@ -130,7 +130,7 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
         val d = hashMapOf ( "mavpackettype" to fmt.name )
 
         for(field in fieldnames)
-            d[field] = __getattr__(field) as String
+            d[field] = __getattr__(field).first as String
 
         return d
     }
@@ -174,7 +174,6 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
             kClass = fmt.msg_types[i]
         }
         if (fmt.msg_types[i] == String::class) {
-//            v = Util.null_term(v)
 //            v = Util.null_term(v)
         }
         if (fmt.msg_mults[i] != null && _apply_multiplier) {

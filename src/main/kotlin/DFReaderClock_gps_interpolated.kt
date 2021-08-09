@@ -70,12 +70,12 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
     // adjust time base from GPS message
     fun gps_message_arrived( m: DFMessage) {
         // msec - style GPS message?
-        var gps_week : Double = m.__getattr__( "Week", null).first as Double
-        var gps_timems : Int =  m.__getattr__( "TimeMS", null).first as Int
+        var gps_week : Double? = m.__getattr__( "Week", null).first as Double?
+        var gps_timems : Int? =  m.__getattr__( "TimeMS", null).first as Int?
         if (gps_week == null) {
             // usec - style GPS message?
-            gps_week =  m.__getattr__("GWk", null).first as Double
-            gps_timems =  m.__getattr__("GMS", null).first as Int
+            gps_week =  m.__getattr__("GWk", null).first as Double?
+            gps_timems =  m.__getattr__("GMS", null).first as Int?
             if (gps_week == null) {
                 if (m.__getattr__("GPSTime", null).first != null ) {
                     // PX4 - style timestamp; we've only been called
@@ -88,20 +88,20 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
 
         if (gps_week == null && m.__hasattr__( "Wk")) {
             // AvA - style logs
-            gps_week = m.__getattr__( "Wk").first as Double
-            gps_timems = m.__getattr__( "TWk").first as Int
+            gps_week = m.__getattr__( "Wk").first as Double?
+            gps_timems = m.__getattr__( "TWk").first as Int?
             if (gps_week == null || gps_timems == null)
                 return
         }
 
-        val t = _gpsTimeToTime(gps_week.toFloat(), gps_timems.toFloat())
+        val t = _gpsTimeToTime(gps_week!!.toFloat(), gps_timems!!.toFloat())
 
         val deltat = t - timebase
         if (deltat <= 0)
             return
 
         for (type in counts_since_gps) {
-            var rate = counts_since_gps[type.key]!! / deltat
+            val rate = counts_since_gps[type.key]!! / deltat
             if (rate > (msg_rate[type.key] ?: 0)) {
                 msg_rate[type.key] = rate.toInt()
             }

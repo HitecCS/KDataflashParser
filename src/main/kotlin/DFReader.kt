@@ -234,7 +234,7 @@ abstract class DFReader() {
                     this.flightmode = "UNKNOWN"
                 }
             } else if ( m.Mode != null) {
-                this.flightmode = Util.mode_string_acm(m.Mode as Int)
+                this.flightmode = Util.mode_string_acm(m.Mode!!.toInt())
             }
 
 
