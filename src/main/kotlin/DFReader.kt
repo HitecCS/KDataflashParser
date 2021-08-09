@@ -27,157 +27,154 @@
 /**
  * parse a generic dataflash file
  */
-abstract class DFReader() {
+abstract class DFReader {
     var clock : DFReaderClock? = null
     var timestamp : Int = 0
-    var mav_type = MAV_TYPE.MAV_TYPE_FIXED_WING
+    var mavType = MAV_TYPE.MAV_TYPE_FIXED_WING
     var verbose = false
     var params = HashMap<String, Float>()
-    var _flightmodes : Array<Array<Any?>>? = null
+    var flightmodes : Array<Array<Any?>>? = null
     var messages = hashMapOf<String, Any>() //can be DFReader or DFMessage
-    var _zero_time_base = false
+    var zeroTimeBase = false
     var flightmode : Any? = null
     var percent : Float = 0f
 
-    abstract fun _parse_next() : DFMessage?
+    abstract fun parseNext() : DFMessage?
 
-    open fun _rewind() {
+    open fun rewind() {
         // be careful not to replace self.messages with a new hash;
         // some people have taken a reference to self.messages and we
         // need their messages to disappear to . If they want their own
         // copy they can copy.copy it!
         messages.clear()
         messages["MAV"] = this
-        if (_flightmodes != null && _flightmodes!!.isNotEmpty()) {
-            flightmode = _flightmodes!![0][0]
+        if (flightmodes != null && flightmodes!!.isNotEmpty()) {
+            flightmode = flightmodes!![0][0]
         } else {
             flightmode = "UNKNOWN"
         }
         percent = 0f
-        clock?.rewind_event()
+        clock?.rewindEvent()
     }
 
-    fun init_clock_px4 ( px4_msg_time: DFMessage, px4_msg_gps : DFMessage) : Boolean {
+    fun initClockPx4 (px4_msg_time: DFMessage, px4_msg_gps : DFMessage) : Boolean {
         clock = DFReaderClock_px4()
-        if ( !_zero_time_base ) {
+        if ( !zeroTimeBase ) {
             (clock as DFReaderClock_px4).set_px4_timebase(px4_msg_time)
             (clock as DFReaderClock_px4).find_time_base(px4_msg_gps)
         }
         return true
     }
 
-    fun init_clock_msec() {
+    fun initClockMsec() {
         // it is a new style flash log with full timestamps
-        clock = DFReaderClock_msec()
+        clock = DFReaderClockMSec()
     }
 
-    fun init_clock_usec() {
-        clock = DFReaderClock_usec()
+    fun initClockUsec() {
+        clock = DFReaderClockUSec()
     }
 
-    fun init_clock_gps_interpolated( clock: DFReaderClock) {
+    fun initClockGpsInterpolated(clock: DFReaderClock) {
         this.clock = clock
     }
 
     /**
      * work out time basis for the log
      */
-    fun init_clock() {
+    fun initClock() {
         println("init_clock")
-        _rewind()
+        rewind()
 
         // speculatively create a gps clock in case we don't find anything better
-        val gps_clock = DFReaderClock_gps_interpolated()
-        clock = gps_clock
+        val gpsClock = DFReaderClockGPSInterpolated()
+        clock = gpsClock
 
-        var px4_msg_time : DFMessage? = null
-        var px4_msg_gps : DFMessage? = null
-        var gps_interp_msg_gps1 : DFMessage? = null
-        var first_us_stamp : Int? = null
-        var first_ms_stamp : Float? = null//guessed type
+        var px4MsgTime : DFMessage? = null
+        var px4MsgGps : DFMessage? = null
+        var gpsInterpMsgGps1 : DFMessage? = null
+        var firstUsStamp : Int? = null
+        var firstMsStamp : Float? = null//guessed type
 
-        var have_good_clock = false
+        var haveGoodClock = false
         var count = 0
         while (true) {
             count++
-            val m = recv_msg()
-            if (m == null) {
-                break
+            val m = recvMsg() ?: break
+
+            val type = m.getType()
+
+            if (firstUsStamp == null) {
+                firstUsStamp =  m.TimeUS
             }
 
-            val type = m.get_type()
-
-            if (first_us_stamp == null) {
-                first_us_stamp =  m.TimeUS
-            }
-
-            if (first_ms_stamp == null && (type != "GPS" && type != "GPS2")) {
+            if (firstMsStamp == null && (type != "GPS" && type != "GPS2")) {
                 // Older GPS messages use TimeMS for msecs past start of gps week
-                first_ms_stamp = m.TimeMS
+                firstMsStamp = m.TimeMS
             }
 
             if (type == "GPS" || type == "GPS2") {
                 if (m.TimeUS != 0 && m.GWk != 0f) {//   everything-usec-timestamped
-                    init_clock_usec()
-                    if (!_zero_time_base ) {
-                        (clock as DFReaderClock_usec).find_time_base(m, first_us_stamp!!)
+                    initClockUsec()
+                    if (!zeroTimeBase ) {
+                        (clock as DFReaderClockUSec).findTimeBase(m, firstUsStamp!!)
                     }
-                    have_good_clock = true
+                    haveGoodClock = true
                     break
                 }
-                if ( m.T != 0 && m.__getattr__("Week", 0).first as Int != 0) {//   GPS is msec-timestamped
-                    if (first_ms_stamp == null) {
-                        first_ms_stamp = m.__getattr__( "T", 0).first as Float
+                if ( m.T != 0 && m.getAttr("Week", 0).first as Int != 0) {//   GPS is msec-timestamped
+                    if (firstMsStamp == null) {
+                        firstMsStamp = m.getAttr( "T", 0).first as Float
                     }
-                    init_clock_msec()
-                    if (!_zero_time_base) {
-                        (clock as DFReaderClock_msec).find_time_base(m, first_ms_stamp)
+                    initClockMsec()
+                    if (!zeroTimeBase) {
+                        (clock as DFReaderClockMSec).findTimeBase(m, firstMsStamp)
                     }
-                    have_good_clock = true
+                    haveGoodClock = true
                     break
                 }
                 if (m.GPSTime != 0f) {  // px4-style-only
-                    px4_msg_gps = m
+                    px4MsgGps = m
                 }
                 if (m.Week != 0f) {
-                    if (gps_interp_msg_gps1 != null && (gps_interp_msg_gps1.TimeMS != m.TimeMS || gps_interp_msg_gps1.Week != m.Week)) {
+                    if (gpsInterpMsgGps1 != null && (gpsInterpMsgGps1.TimeMS != m.TimeMS || gpsInterpMsgGps1.Week != m.Week)) {
 //                      we've received two distinct, non-zero GPS
 //                      packets without finding a decent clock to
 //                      use; fall back to interpolation . Q : should
 //                      we wait a few more messages befoe doing
 //                      this?
-                        this.init_clock_gps_interpolated(gps_clock)
-                        have_good_clock = true
+                        this.initClockGpsInterpolated(gpsClock)
+                        haveGoodClock = true
                         break
                     }
-                    gps_interp_msg_gps1 = m
+                    gpsInterpMsgGps1 = m
                 }
 
             } else if (type == "TIME") {
 //                only px4-style logs use TIME
                 if (m.StartTime != null)
-                    px4_msg_time = m
+                    px4MsgTime = m
             }
 
-            if (px4_msg_time != null && px4_msg_gps != null) {
-                init_clock_px4(px4_msg_time, px4_msg_gps)
-                have_good_clock = true
+            if (px4MsgTime != null && px4MsgGps != null) {
+                initClockPx4(px4MsgTime, px4MsgGps)
+                haveGoodClock = true
                 break
             }
         }
 
         //        print("clock is " + str(this.clock))
-        if (!have_good_clock) {
+        if (!haveGoodClock) {
 //             we failed to find any GPS messages to set a time
 //             base for usec and msec clocks . Also, not a
 //             PX4 - style log
-            if (first_us_stamp != null) {
-                this.init_clock_usec()
-            } else if (first_ms_stamp != null) {
-                this.init_clock_msec()
+            if (firstUsStamp != null) {
+                this.initClockUsec()
+            } else if (firstMsStamp != null) {
+                this.initClockMsec()
             }
         }
-        _rewind()
+        rewind()
 
         return
     }
@@ -185,49 +182,49 @@ abstract class DFReader() {
     /**
      * set time for a message
      */
-    fun _set_time(m: DFMessage) {
+    fun setTime(m: DFMessage) {
         // really just left here for profiling
-        m._timestamp = timestamp.toLong()
+        m.timestamp = timestamp.toLong()
         if (m.fieldnames.isNotEmpty() && this.clock != null)
-            clock!!.set_message_timestamp(m)
+            clock!!.setMessageTimestamp(m)
     }
 
-    fun recv_msg(): DFMessage? {
-        return _parse_next()
+    fun recvMsg(): DFMessage? {
+        return parseNext()
     }
 
     /**
      * add a new message
      */
-    fun _add_msg( m: DFMessage) {
-        val type = m.get_type()
+    fun addMsg(m: DFMessage) {
+        val type = m.getType()
         this.messages[type] = m
-        if (m.fmt.instance_field != null) {
-            val i = m.__getattr__(m.fmt.instance_field!!).first
+        if (m.fmt.instanceField != null) {
+            val i = m.getAttr(m.fmt.instanceField!!).first
             this.messages[String.format("%s[%s]",type, i)] = m
         }
 
-        clock?.message_arrived(m)
+        clock?.messageArrived(m)
 
 
         if (type == "MSG" && m.Message != null) {
             if (m.Message!!.indexOf("Rover") != -1) {
-                this.mav_type = MAV_TYPE.MAV_TYPE_GROUND_ROVER
+                this.mavType = MAV_TYPE.MAV_TYPE_GROUND_ROVER
             } else if (m.Message!!.indexOf("Plane") != -1) {
-                this.mav_type = MAV_TYPE.MAV_TYPE_FIXED_WING
+                this.mavType = MAV_TYPE.MAV_TYPE_FIXED_WING
             } else if (m.Message!!.indexOf("Copter") != -1) {
-                this.mav_type = MAV_TYPE.MAV_TYPE_QUADROTOR
+                this.mavType = MAV_TYPE.MAV_TYPE_QUADROTOR
             } else if (m.Message!!.startsWith("Antenna")) {
-                this.mav_type = MAV_TYPE.MAV_TYPE_ANTENNA_TRACKER
+                this.mavType = MAV_TYPE.MAV_TYPE_ANTENNA_TRACKER
             } else if (m.Message!!.indexOf("ArduSub") != -1) {
-                this.mav_type = MAV_TYPE.MAV_TYPE_SUBMARINE
+                this.mavType = MAV_TYPE.MAV_TYPE_SUBMARINE
             }
         }
         if (type == "MODE") {
             if (m.Mode != null && m.Mode is String) {
                 this.flightmode = (m.Mode as String).uppercase()
             } else if ( m.fieldnames.contains("ModeNum")) {
-                val mapping = Util.mode_mapping_bynumber(this.mav_type)
+                val mapping = Util.mode_mapping_bynumber(this.mavType)
                 if (mapping != null && mapping.contains(m.ModeNum)) {
                     this.flightmode = mapping[m.ModeNum]
                 } else {
@@ -245,7 +242,7 @@ abstract class DFReader() {
         if (type == "PARM" && m.Name != null) {
             this.params[m.Name!!] = m.Value!!
         }
-        this._set_time(m)
+        this.setTime(m)
     }
 
     /**

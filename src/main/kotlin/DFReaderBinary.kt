@@ -29,7 +29,7 @@ import java.io.File
 /**
  * parse a binary dataflash file
  */
-/*class DFReader_binary(filename: String, zero_based_time: Boolean?, progress_callback: ProgressCallback?) : DFReader() {
+/*class DFReaderBinary(filename: String, zero_based_time: Boolean?, progress_callback: ProgressCallback?) : DFReader() {
     var filehandle : Any//Placeholder type
     var formats : HashMap<Int, DFFormat>
     var HEAD1 : Int

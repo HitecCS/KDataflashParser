@@ -27,24 +27,19 @@
 /**
  * DFReaderClock_gps_interpolated - for when the only real references in a message are GPS timestamps
  */
-class DFReaderClock_gps_interpolated() : DFReaderClock() {
+class DFReaderClockGPSInterpolated : DFReaderClock() {
 
-    var msg_rate : HashMap<String, Int>
-    var counts : List<String>
-    var counts_since_gps : HashMap<String, Int>
+    var msgRate = hashMapOf<String, Int>()
+    var counts = listOf<String>()
+    var countsSinceGPS = hashMapOf<String, Int>()
 
-    init {
-        msg_rate = hashMapOf()
-        counts = listOf()
-        counts_since_gps = hashMapOf()
-    }
 
     /**
      * reset counters on rewind
      */
-    override fun rewind_event() {
+    override fun rewindEvent() {
         counts = listOf()
-        counts_since_gps = hashMapOf()
+        countsSinceGPS = hashMapOf()
     }
 
     /*fun message_arrived(m : DFMessage) {
@@ -68,16 +63,16 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
     }*/
 
     // adjust time base from GPS message
-    fun gps_message_arrived( m: DFMessage) {
+    fun gpsMessageArrived(m: DFMessage) {
         // msec - style GPS message?
-        var gps_week : Double? = m.__getattr__( "Week", null).first as Double?
-        var gps_timems : Int? =  m.__getattr__( "TimeMS", null).first as Int?
-        if (gps_week == null) {
+        var gpsWeek : Double? = m.getAttr( "Week", null).first as Double?
+        var gpsTimeMS : Int? =  m.getAttr( "TimeMS", null).first as Int?
+        if (gpsWeek == null) {
             // usec - style GPS message?
-            gps_week =  m.__getattr__("GWk", null).first as Double?
-            gps_timems =  m.__getattr__("GMS", null).first as Int?
-            if (gps_week == null) {
-                if (m.__getattr__("GPSTime", null).first != null ) {
+            gpsWeek =  m.getAttr("GWk", null).first as Double?
+            gpsTimeMS =  m.getAttr("GMS", null).first as Int?
+            if (gpsWeek == null) {
+                if (m.getAttr("GPSTime", null).first != null ) {
                     // PX4 - style timestamp; we've only been called
                     // because we were speculatively created in case no
                     // better clock was found .
@@ -86,39 +81,39 @@ class DFReaderClock_gps_interpolated() : DFReaderClock() {
             }
         }
 
-        if (gps_week == null && m.__hasattr__( "Wk")) {
+        if (gpsWeek == null && m.hasAttr( "Wk")) {
             // AvA - style logs
-            gps_week = m.__getattr__( "Wk").first as Double?
-            gps_timems = m.__getattr__( "TWk").first as Int?
-            if (gps_week == null || gps_timems == null)
+            gpsWeek = m.getAttr( "Wk").first as Double?
+            gpsTimeMS = m.getAttr( "TWk").first as Int?
+            if (gpsWeek == null || gpsTimeMS == null)
                 return
         }
 
-        val t = _gpsTimeToTime(gps_week!!.toFloat(), gps_timems!!.toFloat())
+        val t = gpsTimeToTime(gpsWeek!!.toFloat(), gpsTimeMS!!.toFloat())
 
         val deltat = t - timebase
         if (deltat <= 0)
             return
 
-        for (type in counts_since_gps) {
-            val rate = counts_since_gps[type.key]!! / deltat
-            if (rate > (msg_rate[type.key] ?: 0)) {
-                msg_rate[type.key] = rate.toInt()
+        for (type in countsSinceGPS) {
+            val rate = countsSinceGPS[type.key]!! / deltat
+            if (rate > (msgRate[type.key] ?: 0)) {
+                msgRate[type.key] = rate.toInt()
             }
         }
-        msg_rate["IMU"] = 50
+        msgRate["IMU"] = 50
         timebase = t
-        counts_since_gps = hashMapOf<String, Int>()
+        countsSinceGPS = hashMapOf()
 
 
     }
 
-    override fun set_message_timestamp(m: DFMessage) {
-        var rate = msg_rate[m.fmt.name] ?: 50
+    override fun setMessageTimestamp(m: DFMessage) {
+        var rate = msgRate[m.fmt.name] ?: 50
         if (rate == 0)
             rate = 50
 
-        val count = counts_since_gps[m.fmt.name] ?: 0
-        m._timestamp = (timebase + count / rate).toLong()
+        val count = countsSinceGPS[m.fmt.name] ?: 0
+        m.timestamp = (timebase + count / rate).toLong()
     }
 }

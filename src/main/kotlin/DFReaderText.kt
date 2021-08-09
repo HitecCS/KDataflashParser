@@ -4,7 +4,7 @@ import kotlin.collections.ArrayList
 import kotlin.collections.HashSet
 
 /*
- * DFReader_text
+ * DFReaderText
  * Copyright (C) 2021 Hitec Commercial Solutions
  * Author, Stephen Woerner
  *
@@ -32,24 +32,23 @@ import kotlin.collections.HashSet
 /**
  * parse a text dataflash file
  */
-class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallback: ProgressCallback?) : DFReader() {
+class DFReaderText(filename: String, zeroBasedTime: Boolean?, progressCallback: ProgressCallback?) : DFReader() {
     var filename: String
-    var zero_time_base: Boolean
-    var progress_callback: ProgressCallback?
-    var data_len: Int
+    var progressCallback: ProgressCallback?
+    var dataLen: Int
     var pythonLength: Int
     var fileLines: List<String>
-    var data_map: String = ""
+    var dataMap: String = ""
     var offset: Int
     var delimeter: String
     var offsets = hashMapOf<String,ArrayList<Int>>()
-    var type_list : HashSet<String>? = null
+    var typeSet : HashSet<String>? = null
 
     var formats: HashMap<String, DFFormat>
-    var id_to_name: HashMap<Int, String>
+    var idToName: HashMap<Int, String>
 
     var counts = hashMapOf<String,Int>()
-    var _count = 0
+    var count = 0
     var ofs = 0
 
     var allMessages = arrayListOf<DFMessage>()
@@ -61,13 +60,13 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
             var count = 0
             var pct = 0
             var nullCount = 0
-            while (offset < data_map.length) {
-                _parse_next()?.let {
+            while (offset < dataMap.length) {
+                parseNext()?.let {
                     field.add(it)
                 } ?: run {
                     nullCount++
                 }
-                val newPct = offset / data_map.length
+                val newPct = offset / dataMap.length
                 if(pct != newPct) {
                     pct = newPct
                     println(newPct)
@@ -80,9 +79,8 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
 
     init {
         this.filename = filename
-        this.zero_time_base = zero_based_time ?: false
-        progress_callback = progressCallback
-//        DFReader.__init__()
+        this.zeroTimeBase = zeroBasedTime ?: false
+        this.progressCallback = progressCallback
         // read the whole file into memory for simplicity
         println("reading in log")
         fileLines = File(filename).readLines()
@@ -94,8 +92,8 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
             flength += it.length
             pythonLength += it.length + 2 // Not exactly sure why its 2 but I assume its formatting characters (File.tell() in python may count "\n\r")
         }
-        data_len = flength
-        data_map = ""
+        dataLen = flength
+        dataMap = ""
         offset = 0
         delimeter = ", "
 
@@ -104,27 +102,26 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         fileLines.forEach {
             builder.append(it)
             builder.append("\n")
-//            data_map += it//.split(delimeter))
-//            data_map += "\n"
+//            dataMap += it//.split(delimeter))
+//            dataMap += "\n"
         }
-        data_map = builder.toString()
+        dataMap = builder.toString()
         println("finished combining")
 
         formats = hashMapOf(Pair("FMT", DFFormat(0x80, "FMT", 89, "BBnNZ", "Type,Length,Name,Format,Columns")))
-        id_to_name = hashMapOf(Pair(0x80, "FMT"))
-        _rewind()
-        _zero_time_base = zero_time_base
-        init_clock()
-        _rewind()
-        init_arrays(progress_callback)
+        idToName = hashMapOf(Pair(0x80, "FMT"))
+        rewind()
+        initClock()
+        rewind()
+        initArrays()
     }
 
     /**
      * rewind to start of log
      */
-    override fun _rewind() {
-        println("_rewind()")
-        super._rewind()
+    override fun rewind() {
+        println("rewind()")
+        super.rewind()
         // find the first valid line
         offset = findNextTag("FMT, ", null, null)
         if (offset == -1) {
@@ -133,38 +130,31 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
                 delimeter = ","
             }
         }
-        type_list = null
-    }
-
-    /**
-     * rewind to start of log
-     */
-    fun rewind() {
-        _rewind()
+        typeSet = null
     }
 
 
     /**
-     * initialise arrays for fast recv_match()
+     * initialise arrays for fast recvMatch()
      */
-    fun init_arrays(progress_callback: ProgressCallback?) {
-        println("init_arrays")
-        offsets = hashMapOf<String,ArrayList<Int>>()
-        counts = hashMapOf<String,Int>()
-        _count = 0
+    private fun initArrays() {
+        println("initArrays")
+        offsets = hashMapOf()
+        counts = hashMapOf()
+        count = 0
         ofs = offset
         var pct = 0
 
-        while (ofs + 16 < data_map.length) {//data_len) {
-            var mtype = data_map.substring(ofs, ofs + 4)
+        while (ofs + 16 < dataMap.length) {//dataLen) {
+            var mtype = dataMap.substring(ofs, ofs + 4)
             if (mtype[3] == ',') {
                 mtype = mtype.substring(0, 3)
             }
             if (!offsets.containsKey(mtype)) {
                 counts[mtype] = 0
-                offsets[mtype] = arrayListOf<Int>()
+                offsets[mtype] = arrayListOf()
                 offset = ofs
-                _parse_next()
+                parseNext()
             }
             offsets[mtype]?.add(ofs)
 
@@ -172,29 +162,31 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
 
             if (mtype == "FMT") {
                 offset = ofs
-                _parse_next()
+                parseNext()
             }
 
             if (mtype == "FMTU") {
                 offset = ofs
-                _parse_next()
+                parseNext()
             }
 
-            ofs = data_map.indexOf("\n", ofs)
+            ofs = dataMap.indexOf("\n", ofs)
             if (ofs == -1) {
                 break
             }
             ofs += 1
-            val new_pct = ((100 * ofs) / data_map.length).toInt()
-            if (progress_callback != null && new_pct != pct) {
-                progress_callback.update(new_pct)
-                pct = new_pct
+            val newPct = (100 * ofs) / dataMap.length
+            progressCallback?.let { callback ->
+                if(newPct != pct) {
+                    callback.update(newPct)
+                    pct = newPct
+                }
             }
         }
 
 
         for (key in counts.keys) {
-            _count += counts[key]!!
+            count += counts[key]!!
         }
         offset = 0
     }
@@ -202,7 +194,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
     /**
      * skip fwd to next msg matching given type set
      */
-    fun skip_to_type(type : String) {
+    fun skipToType(type : String) {
 
 //        if (type_list == null) {
 //// always add some key msg types so we can track flightmode, params etc
@@ -240,20 +232,20 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
     /**
      * read one message, returning it as an object
      */
-    override fun _parse_next() : DFMessage? {
+    override fun parseNext() : DFMessage? {
 
         var elements = arrayListOf<String>()
 
         while (true) {
-            var endline = data_map.indexOf("\n", offset)
+            var endline = dataMap.indexOf("\n", offset)
             if (endline == -1) {
-                endline = data_len
+                endline = dataLen
                 if (endline < offset) {
                     break
                 }
             }
 
-            val s = data_map.substring(offset,endline).trimEnd()
+            val s = dataMap.substring(offset,endline).trimEnd()
             elements = ArrayList(s.split(delimeter))
             offset = endline + 1
             if (elements.size >= 2) {
@@ -262,7 +254,7 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
             }
         }
 
-        if (offset > data_len) {
+        if (offset > dataLen) {
             return null
         }
 
@@ -273,19 +265,19 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
             elements.add("")
         }
 
-        percent = 100f * (offset.toFloat() / data_len.toFloat())
+        percent = 100f * (offset.toFloat() / dataLen.toFloat())
 
-        val msg_type = elements[0]
+        val msgType = elements[0]
 
-        if (!formats.contains(msg_type)) {
-            return _parse_next()
+        if (!formats.contains(msgType)) {
+            return parseNext()
         }
 
-        val fmt = formats[msg_type]
+        val fmt = formats[msgType]
 
         if (elements.size < fmt!!.format.length + 1) {
             // not enough columns
-            return _parse_next()
+            return parseNext()
         }
 
         elements = ArrayList(elements.subList(1, elements.size))
@@ -294,45 +286,45 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
         if (name == "FMT") {
             // add to formats
             // name, len, format, headings
-            val ftype = elements[0].toInt()
-            val fname = elements[2]
+            val fType = elements[0].toInt()
+            val fName = elements[2]
             if (delimeter == ",") {
                 val last = elements.subList(4, elements.size).joinToString(",")
                 elements = ArrayList(elements.subList(0,4))
                 elements.add(last)
             }
             var columns = elements[4]
-            if (fname == "FMT" && columns == "Type,Length,Name,Format") {
+            if (fName == "FMT" && columns == "Type,Length,Name,Format") {
                 // some logs have the 'Columns' column missing from text logs
                 columns = "Type,Length,Name,Format,Columns"
             }
-            val new_fmt = DFFormat(
-                ftype,
-                fname,
+            val newFmt = DFFormat(
+                fType,
+                fName,
                 elements[1].toInt(),
                 elements[3],
                 columns,
-                oldfmt = formats[fname]
+                oldFmt = formats[fName]
             )
-            formats[fname] = new_fmt
-            id_to_name[ftype] = fname
+            formats[fName] = newFmt
+            idToName[fType] = fName
         }
         var m : DFMessage? = null
         try {
             m = DFMessage(fmt, elements, false, this)
         } catch (valError: Throwable) {
-            return _parse_next()
+            return parseNext()
         }
 
-        if (m.get_type() == "FMTU") {
-            val fmtid = m.__getattr__( "FmtType", null)
-            if (fmtid.first != null && id_to_name.containsKey(fmtid.first as Int)) {
-                val fmtu = formats[id_to_name[fmtid.first as Int]!!]!!
-                fmtu.set_unit_ids(m.__getattr__("UnitIds", null).first as String)
-                fmtu.set_mult_ids(m.__getattr__( "MultIds", null).first as String)
+        if (m.getType() == "FMTU") {
+            val fmtID = m.getAttr( "FmtType", null)
+            if (fmtID.first != null && idToName.containsKey(fmtID.first as Int)) {
+                val fmtU = formats[idToName[fmtID.first as Int]!!]!!
+                fmtU.setUnitIdsAndInstField(m.getAttr("UnitIds", null).first as String)
+                fmtU.multIds = m.getAttr( "MultIds", null).first as String
             }
         }
-        _add_msg(m)
+        addMsg(m)
 
         return m
     }
@@ -340,26 +332,26 @@ class DFReader_text(filename: String, zero_based_time: Boolean?, progressCallbac
     /**
      * get the last timestamp in the log
      */
-    fun last_timestamp() : Long {
-        var highest_offset = 0
-        for (mtype in counts.keys) {
-            if (offsets[mtype]!!.size == 0) {
+    private fun lastTimestamp() : Long {
+        var highestOffset = 0
+        for (mType in counts.keys) {
+            if (offsets[mType]!!.size == 0) {
                 continue
             }
-            ofs = offsets[mtype]!![offsets.size-1]
-            if (ofs > highest_offset) {
-                highest_offset = ofs
+            ofs = offsets[mType]!![offsets.size-1]
+            if (ofs > highestOffset) {
+                highestOffset = ofs
             }
         }
-        offset = highest_offset
-        val m = recv_msg()
-        return m!!._timestamp
+        offset = highestOffset
+        val m = recvMsg()
+        return m!!.timestamp
     }
 
     /**
      * Finds and returns the first index of the tag in the given range
      */
-    fun findNextTag(tag: String, start: Int?, end: Int?): Int {
+    private fun findNextTag(tag: String, start: Int?, end: Int?): Int {
         val a = start ?: 0
         val z = end ?: fileLines.size-1
         for (i in a..z) {

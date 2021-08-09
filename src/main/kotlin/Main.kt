@@ -11,7 +11,7 @@ fun main() {
                 println("$pct")
             }
         }
-        val dfreader = DFReader_text(filename, null, callback)
+        val dfreader = DFReaderText(filename, null, callback)
         println(dfreader.toString())
         val a = dfreader.allMessages
         val b = a.last()

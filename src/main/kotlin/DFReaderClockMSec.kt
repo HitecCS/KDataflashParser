@@ -25,28 +25,28 @@
  */
 
 /**
- * DFReaderClock_msec - a format where many messages have TimeMS in
+ * DFReaderClockMSec - a format where many messages have TimeMS in
  * their formats, and GPS messages have a "T" field giving msecs
  */
-class DFReaderClock_msec() : DFReaderClock() {
+class DFReaderClockMSec : DFReaderClock() {
 
     /**
      * work out time basis for the log - new style
      */
-    fun find_time_base( gps : DFMessage, first_ms_stamp : Float) {
-        val t = _gpsTimeToTime(gps.Week!!, gps.TimeMS!!)
-        set_timebase((t - gps.T!! * 0.001))
-        timestamp = (timebase + first_ms_stamp * 0.001)
+    fun findTimeBase(gps : DFMessage, firstMSStamp : Float) {
+        val t = gpsTimeToTime(gps.Week!!, gps.TimeMS!!)
+        timebase = ((t - gps.T!! * 0.001))
+        timestamp = (timebase + firstMSStamp * 0.001)
     }
 
-    override fun set_message_timestamp(m : DFMessage) {
+    override fun setMessageTimestamp(m : DFMessage) {
         if ("TimeMS" == m.fieldnames[0]) {
-            m._timestamp = (timebase + m.TimeMS!! * 0.001).toLong()
-        } else if (listOf("GPS", "GPS2").contains(m.get_type())) {
-            m._timestamp = (timebase + m.T!! * 0.001).toLong()
+            m.timestamp = (timebase + m.TimeMS!! * 0.001).toLong()
+        } else if (listOf("GPS", "GPS2").contains(m.getType())) {
+            m.timestamp = (timebase + m.T!! * 0.001).toLong()
         } else {
-            m._timestamp = timestamp.toLong()
+            m.timestamp = timestamp.toLong()
         }
-        timestamp = m._timestamp.toDouble()
+        timestamp = m.timestamp.toDouble()
     }
 }

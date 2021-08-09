@@ -23,34 +23,30 @@
  * Released under GNU GPL version 3 or later
  * Partly based on SDLog2Parser by Anton Babushkin
  */
-abstract class DFReaderClock() {
+abstract class DFReaderClock {
 
     var timebase : Double = 0.0
     var timestamp : Double
     init {
-        set_timebase(0.0)
+        timebase = 0.0
         timestamp = 0.0
     }
 
     /**
      * convert GPS week and TOW to a time in seconds since 1970
      */
-    fun _gpsTimeToTime( week : Float, msec: Float) : Double {
+    fun gpsTimeToTime(week : Float, mSec: Float) : Double {
         val epoch = 86400 * (10 * 365 + ((1980 - 1969) / 4) + 1 + 6 - 2)
-        return epoch + 86400 * 7 * week + msec * 0.001 - 18
+        return epoch + 86400 * 7 * week + mSec * 0.001 - 18
     }
 
-    fun set_timebase( base : Double) {
-        timebase = base
-    }
-
-    open fun message_arrived(m : DFMessage) {
+    open fun messageArrived(m : DFMessage) {
 //        pass
     }
 
-    open fun rewind_event() {
+    open fun rewindEvent() {
 //        pass
     }
 
-    abstract fun set_message_timestamp(m : DFMessage)
+    abstract fun setMessageTimestamp(m : DFMessage)
 }

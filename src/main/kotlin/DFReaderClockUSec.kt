@@ -25,16 +25,16 @@
  */
 
 /**
- * DFReaderClock_usec - use microsecond timestamps from messages
+ * DFReaderClockUSec - use microsecond timestamps from messages
  */
-class DFReaderClock_usec(): DFReaderClock() {
+class DFReaderClockUSec(): DFReaderClock() {
 
     /**
      * work out time basis for the log - even newer style
      */
-    fun find_time_base( gps: DFMessage, first_us_stamp: Int) {
-        val t = _gpsTimeToTime(gps.GWk!!, gps.GMS!!)
-        set_timebase((t - gps.TimeUS!! * 0.000001))
+    fun findTimeBase(gps: DFMessage, first_us_stamp: Int) {
+        val t = gpsTimeToTime(gps.GWk!!, gps.GMS!!)
+        timebase = (t - gps.TimeUS!! * 0.000001)
 //         this ensures FMT messages get appropriate timestamp:
         timestamp = (timebase + first_us_stamp * 0.000001)
     }
@@ -42,7 +42,7 @@ class DFReaderClock_usec(): DFReaderClock() {
     /**
      * The TimeMS in some messages is not from *our* clock!
      */
-    fun type_has_good_TimeMS(type: String) : Boolean {
+    fun typeHasGoodTimeMS(type: String) : Boolean {
         if (type.startsWith("ACC")) {
             return false
         }
@@ -52,8 +52,8 @@ class DFReaderClock_usec(): DFReaderClock() {
         return true
     }
 
-    fun should_use_msec_field0( m: DFMessage) : Boolean {
-        if (type_has_good_TimeMS (m.get_type())) {
+    fun shouldUseMSecField0(m: DFMessage) : Boolean {
+        if (typeHasGoodTimeMS (m.getType())) {
             return false
         }
         if ("TimeMS" != m.fieldnames[0]) {
@@ -65,17 +65,17 @@ class DFReaderClock_usec(): DFReaderClock() {
         return true
     }
 
-    override fun set_message_timestamp(m: DFMessage) {
+    override fun setMessageTimestamp(m: DFMessage) {
         if("TimeUS" == m.fieldnames[0]) {
 //             only format messages don 't have a TimeUS in them...
-            m._timestamp = (timebase + m.TimeUS!! * 0.000001).toLong()
-        } else if(should_use_msec_field0(m)) {
+            m.timestamp = (timebase + m.TimeUS!! * 0.000001).toLong()
+        } else if(shouldUseMSecField0(m)) {
 //             ... in theory. I expect there to be some logs which are not
 //             "pure":
-            m._timestamp = (timebase + m.TimeMS!! * 0.001).toLong()
+            m.timestamp = (timebase + m.TimeMS!! * 0.001).toLong()
         } else {
-            m._timestamp = timestamp.toLong()
+            m.timestamp = timestamp.toLong()
         }
-        timestamp = m._timestamp.toDouble()
+        timestamp = m.timestamp.toDouble()
     }
 }

@@ -29,9 +29,9 @@ import kotlin.reflect.KClass
  * Partly based on SDLog2Parser by Anton Babushkin
  */
 
-class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_multiplier : Boolean, var _parent: DFReader) {
+class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMultiplier : Boolean, var parent: DFReader) {
     var fieldnames : List<String> = fmt.columnsArr
-    var _timestamp : Long = 0L
+    var timestamp : Long = 0L
     var Message: String? = null
         get() {
             return getStringFieldByName("Message")
@@ -97,7 +97,7 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
     fun getIntFieldByName(name: String) : Int? {
         val index = fieldnames.indexOf(name)
         if(index != -1) {
-            return _elements[index].toInt()
+            return elements[index].toInt()
         }
         return null
     }
@@ -105,7 +105,7 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
     fun getLongFieldByName(name: String) : Long? {
         val index = fieldnames.indexOf(name)
         if(index != -1) {
-            return _elements[index].toLong()
+            return elements[index].toLong()
         }
         return null
     }
@@ -113,7 +113,7 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
     fun getFloatFieldByName(name: String) : Float? {
         val index = fieldnames.indexOf(name)
         if(index != -1) {
-            return _elements[index].toFloat()
+            return elements[index].toFloat()
         }
         return null
     }
@@ -121,28 +121,28 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
     fun getStringFieldByName(name: String) : String? {
         val index = fieldnames.indexOf(name)
         if(index != -1) {
-            return _elements[index]
+            return elements[index]
         }
         return null
     }
 
-    fun to_dict() : HashMap<String, String> {
+    fun toDict() : HashMap<String, String> {
         val d = hashMapOf ( "mavpackettype" to fmt.name )
 
         for(field in fieldnames)
-            d[field] = __getattr__(field).first as String
+            d[field] = getAttr(field).first as String
 
         return d
     }
 
-    fun __getattr__(field: String) : Pair<Any?, KClass<out Any>>  {
-        return __getattr__(field, null)
+    fun getAttr(field: String) : Pair<Any?, KClass<out Any>>  {
+        return getAttr(field, null)
     }
 
     /**
      * override field getter
      */
-    fun __getattr__(field: String, default : Any?) : Pair<Any?, KClass<out Any>> {
+    fun getAttr(field: String, default : Any?) : Pair<Any?, KClass<out Any>> {
         var i = 0
         try {
             i = fmt.colhash[field]!!
@@ -156,14 +156,14 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
 //            v = _elements[i].toString("utf-8")
 //            kClass = ByteArray::class
 //        } else {
-            v = _elements[i]
+            v = elements[i]
             kClass = Array<Float>::class
 //        }
 
         if (fmt.format[i] == 'a') {
             //Squeltch
-        } else if (fmt.format[i] != 'M' || _apply_multiplier) {
-            v = when(fmt.msg_types[i]) {
+        } else if (fmt.format[i] != 'M' || applyMultiplier) {
+            v = when(fmt.msgTypes[i]) {
                 Int::class -> v.toInt()
                 Double::class -> v.toDouble()
                 Boolean::class -> v.toString().lowercase().toBoolean()
@@ -171,18 +171,18 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
                 else -> v
 
             }
-            kClass = fmt.msg_types[i]
+            kClass = fmt.msgTypes[i]
         }
-        if (fmt.msg_types[i] == String::class) {
+        if (fmt.msgTypes[i] == String::class) {
 //            v = Util.null_term(v)
         }
-        if (fmt.msg_mults[i] != null && _apply_multiplier) {
-            v = (v as Double) * fmt.msg_mults[i]!!
+        if (fmt.msgMults[i] != null && applyMultiplier) {
+            v = (v as Double) * fmt.msgMults[i]!!
         }
         return Pair(v, kClass)
     }
 
-    fun __hasattr__(name : String) : Boolean {
+    fun hasAttr(name : String) : Boolean {
         return fieldnames.contains(name)
     }
 
@@ -190,12 +190,12 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
     /**
      * override field setter
      */
-    fun __setattr__( field: String, vTemp : Any?) {
+    fun setAttr(field: String, vTemp : Any?) {
         var v = vTemp
         if (!field[0].isUpperCase() || !fmt.colhash.containsKey(field)) {
             when (field) {
                 "fieldnames" -> fieldnames = v as List<String>
-                "_timestamp" -> _timestamp = v as Long
+                "_timestamp" -> timestamp = v as Long
                 "Message" -> Message = v as String
                 "Mode" -> Mode = v as String
                 "ModeNum" -> ModeNum = v as Int
@@ -213,19 +213,19 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
             }
         } else {
             val i = fmt.colhash[field]
-            if (fmt.msg_mults[i!!] != null && _apply_multiplier) {
-                v = (v as Double) / fmt.msg_mults[i]!!
+            if (fmt.msgMults[i!!] != null && applyMultiplier) {
+                v = (v as Double) / fmt.msgMults[i]!!
             }
-            _elements[i] = v.toString()
+            elements[i] = v.toString()
         }
     }
 
 
-    fun get_type() : String {
+    fun getType() : String {
         return fmt.name
     }
 
-    fun __str__() {
+//    override fun toString() : String {
 //        var ret = String.format("%s {" , fmt.name)
 //        var col_count = 0
 //        for (c in fmt.columns) {
@@ -244,12 +244,13 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
 //            ret = ret[:-2]
 //
 //        return ret + "}"
-    }
+//        return this.toString()
+//    }
 
     /**
      * create a binary message buffer for a message
      */
-    fun get_msgbuf() {
+    fun getMsgBuf() {
 //        var values = arrayListOf<Any>()
 //        for (i in 0..fmt.columns.length) {
 //            if (i >= fmt.msg_mults.size) {
@@ -284,22 +285,22 @@ class DFMessage(val fmt: DFFormat, val _elements: ArrayList<String>, val _apply_
     }
 
 
-    fun get_fieldnames() : List<String>{
+    fun getDFFieldnames() : List<String>{
         return fieldnames
     }
 
     /**
      * support indexing, allowing for multi-instance sensors in one message
      */
-    fun __getitem__(key: String) : Any {
-        if (fmt.instance_field == null) {
+    fun getItem(key: String) : Any {
+        if (fmt.instanceField == null) {
 //            raise IndexError ()
             throw java.lang.Exception("IndexError")
         }
         val k = String.format("%s[%s]", fmt.name, key)
-        if (!_parent.messages.contains(k)) {
+        if (!parent.messages.contains(k)) {
             throw java.lang.Exception("IndexError")
         }
-        return _parent.messages[k]!!
+        return parent.messages[k]!!
     }
 }

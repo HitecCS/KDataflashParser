@@ -47,12 +47,12 @@ class DFReaderClock_px4() : DFReaderClock() {
         px4_timebase = (time_msg.StartTime!! * 1.0e-6).toInt()
     }
 
-    override fun set_message_timestamp(m: DFMessage) {
-        m._timestamp = (timebase + px4_timebase).toLong()
+    override fun setMessageTimestamp(m: DFMessage) {
+        m.timestamp = (timebase + px4_timebase).toLong()
     }
 
-    override fun message_arrived(m : DFMessage) {
-        val type = m.get_type()
+    override fun messageArrived(m : DFMessage) {
+        val type = m.getType()
         if (type == "TIME" && "StartTime" in m.fieldnames) {
             set_px4_timebase(m)
         }
