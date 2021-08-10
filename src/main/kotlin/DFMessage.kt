@@ -30,6 +30,7 @@ import kotlin.reflect.KClass
  */
 
 class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMultiplier : Boolean, var parent: DFReader) {
+
     var fieldnames : List<String> = fmt.columnsArr
     var timestamp : Long = 0L
     var Message: String? = null
@@ -40,27 +41,22 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
         get() {
             return getStringFieldByName("Mode")
         }
-
     var ModeNum : Int? = null
         get() {
             return getIntFieldByName("ModeNum")
         }
-
     var MainState: Int? = null
         get() {
             return getIntFieldByName("MainState")
         }
-
     var Name: String? = null
         get() {
             return getStringFieldByName("Name")
         }
-
     var Value: Float? = null//TODO
         get() {
             return getFloatFieldByName("Value")
         }
-
     var TimeUS : Int? = null
         get() {
            return getIntFieldByName("TimeUS")
@@ -167,7 +163,7 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
                 Int::class -> v.toInt()
                 Double::class -> v.toDouble()
                 Boolean::class -> v.toString().lowercase().toBoolean()
-                String::class -> v as String
+                String::class -> v
                 else -> v
 
             }

@@ -58,10 +58,10 @@ abstract class DFReader {
     }
 
     fun initClockPx4 (px4_msg_time: DFMessage, px4_msg_gps : DFMessage) : Boolean {
-        clock = DFReaderClock_px4()
+        clock = DFReaderClockPx4()
         if ( !zeroTimeBase ) {
-            (clock as DFReaderClock_px4).set_px4_timebase(px4_msg_time)
-            (clock as DFReaderClock_px4).find_time_base(px4_msg_gps)
+            (clock as DFReaderClockPx4).setPx4Timebase(px4_msg_time)
+            (clock as DFReaderClockPx4).findTimeBase(px4_msg_gps)
         }
         return true
     }
@@ -324,4 +324,9 @@ abstract class DFReader {
 //        this._rewind()
 //        return this._flightmodes
     }
+
+    fun u_ord(c : Byte) : Int {
+        return c.toInt()
+    }
+
 }

@@ -29,7 +29,7 @@ import kotlin.reflect.KClass
 class DFFormat(
     val type: Int, //TODO these types are for sure incorrect
     val name: String,
-    val fLen: Int,
+    val len: Int,
     val format: String,
     val columns: String,
     val oldFmt: DFFormat? = null

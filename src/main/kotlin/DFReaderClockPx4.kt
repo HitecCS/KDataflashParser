@@ -27,34 +27,34 @@
 /**
  * DFReaderClock_px4 - a format where a starting time is explicitly given in a message
  */
-class DFReaderClock_px4() : DFReaderClock() {
+class DFReaderClockPx4 : DFReaderClock() {
 
-    var px4_timebase : Int
+    var px4Timebase : Int
 
     init {
-        px4_timebase = 0
+        px4Timebase = 0
     }
 
     /**
      * work out time basis for the log - PX4 native
      */
-    fun find_time_base( gps : DFMessage) {
+    fun findTimeBase(gps : DFMessage) {
         val t = gps.GPSTime!! * 1.0e-6
-        timebase = t - px4_timebase
+        timebase = t - px4Timebase
     }
 
-    fun set_px4_timebase( time_msg: DFMessage) {
-        px4_timebase = (time_msg.StartTime!! * 1.0e-6).toInt()
+    fun setPx4Timebase(time_msg: DFMessage) {
+        px4Timebase = (time_msg.StartTime!! * 1.0e-6).toInt()
     }
 
     override fun setMessageTimestamp(m: DFMessage) {
-        m.timestamp = (timebase + px4_timebase).toLong()
+        m.timestamp = (timebase + px4Timebase).toLong()
     }
 
     override fun messageArrived(m : DFMessage) {
         val type = m.getType()
         if (type == "TIME" && "StartTime" in m.fieldnames) {
-            set_px4_timebase(m)
+            setPx4Timebase(m)
         }
     }
 }
