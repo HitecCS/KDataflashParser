@@ -1,6 +1,10 @@
+import java.io.BufferedReader
 import java.io.File
-import java.util.*
+import java.io.FileReader
+import java.io.IOException
+import java.math.BigInteger
 import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 
 /*
@@ -30,83 +34,44 @@ import kotlin.collections.HashSet
  */
 
 /**
- * parse a text dataflash file
+ * Parses a text DataFlash log
  */
-class DFReaderText(filename: String, zeroBasedTime: Boolean?, progressCallback: ProgressCallback?) : DFReader() {
-    var filename: String
-    var progressCallback: ProgressCallback?
-    var dataLen: Int
-    var pythonLength: Int
-    var fileLines: List<String>
-    var dataMap: String = ""
-    var offset: Int
-    var delimeter: String
-    var offsets = hashMapOf<String,ArrayList<Int>>()
-    var typeSet : HashSet<String>? = null
+class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
+
+    private var dataLen: Int
+    private var pythonLength: Int
+    private var numLines: BigInteger = BigInteger.valueOf(0L)
+
+    private var bufferedReader : BufferedReader
+    private var offset: Int
+    private var delimiter: String
+    private var offsets = hashMapOf<String,ArrayList<Int>>()
+    private var typeSet : HashSet<String>? = null
 
     var formats: HashMap<String, DFFormat>
-    var idToName: HashMap<Int, String>
+    private var idToName: HashMap<Int, String>
 
-    var counts = hashMapOf<String,Int>()
-    var count = 0
-    var ofs = 0
-
-    var allMessages = arrayListOf<DFMessage>()
-        get() {
-    //        var typeAtOffset = hashMapOf<o,String>()
-            if(field.isNotEmpty())
-                return field
-
-            var count = 0
-            var pct = 0
-            var nullCount = 0
-            while (offset < dataMap.length) {
-                parseNext()?.let {
-                    field.add(it)
-                } ?: run {
-                    nullCount++
-                }
-                val newPct = offset / dataMap.length
-                if(pct != newPct) {
-                    pct = newPct
-                    println(newPct)
-                }
-                count ++
-            }
-            offset = 0
-            return field
-        }
+    private var counts = hashMapOf<String,Int>()
+    private var count = 0
+    private var ofs = 0
 
     init {
-        this.filename = filename
         this.zeroTimeBase = zeroBasedTime ?: false
-        this.progressCallback = progressCallback
         // read the whole file into memory for simplicity
-        println("reading in log")
-        fileLines = File(filename).readLines()
+        println("Beginning initial parse")
 
-        println("Read ${fileLines.size} lines")
-        var flength = 0
+        var fLength = 0
         pythonLength = 0
-        fileLines.forEach {
-            flength += it.length
+        File(filename).forEachLine {
+            numLines += BigInteger.ONE
+            fLength += it.length + "\n".length
             pythonLength += it.length + 2 // Not exactly sure why its 2 but I assume its formatting characters (File.tell() in python may count "\n\r")
         }
-        dataLen = flength
-        dataMap = ""
+        println("Reading $numLines lines")
+        dataLen = fLength
         offset = 0
-        delimeter = ", "
-
-        println("combining lines into a single String")
-        val builder = StringBuilder()
-        fileLines.forEach {
-            builder.append(it)
-            builder.append("\n")
-//            dataMap += it//.split(delimeter))
-//            dataMap += "\n"
-        }
-        dataMap = builder.toString()
-        println("finished combining")
+        bufferedReader = BufferedReader( FileReader(filename))
+        delimiter = ", "
 
         formats = hashMapOf(Pair("FMT", DFFormat(0x80, "FMT", 89, "BBnNZ", "Type,Length,Name,Format,Columns")))
         idToName = hashMapOf(Pair(0x80, "FMT"))
@@ -114,28 +79,189 @@ class DFReaderText(filename: String, zeroBasedTime: Boolean?, progressCallback: 
         initClock()
         rewind()
         initArrays()
+        rewind()
     }
 
     /**
-     * rewind to start of log
+     * Rewind to start of log
      */
     override fun rewind() {
         println("rewind()")
         super.rewind()
         // find the first valid line
-        offset = findNextTag("FMT, ", null, null)
-        if (offset == -1) {
-            offset = findNextTag("FMT,", null, null)
-            if (offset != -1) {
-                delimeter = ","
-            }
-        }
+        offset = 0
+        bufferedReader.close()
+        bufferedReader = BufferedReader( FileReader(filename))
+
+//        offset = findNextTag("FMT, ", null, null)
+//        if (offset == -1) {
+//            offset = findNextTag("FMT,", null, null)
+//            if (offset != -1) {
+//                delimiter = ","
+//            }
+//        }
         typeSet = null
+    }
+
+    /**
+     * Calls close() on DFReaderText's internal BufferedReader. Use with caution
+     *
+     * @throws IOException
+     */
+    fun close()  {
+        bufferedReader.close()
     }
 
 
     /**
-     * initialise arrays for fast recvMatch()
+     * Returns the value the DFReaderText's internal BufferedReader returns ready() function. If a Throwable occurs, it
+     * returns false.
+     *
+     * Can be used to avoid exceptions when using parseNext()
+     */
+    fun hasNext() : Boolean {
+        return try {
+            bufferedReader.ready()
+        } catch (e : Throwable) {
+            false
+        }
+    }
+
+    /**
+     * Warning, long-running, memory intensive operation
+     *
+     * This function returns, every entry from a DataFlash log, fully parsed as a DFMessage in an ArrayList. The list
+     * returned will be ordered in the same order as the DataFlash log (presumably, time-sorted order).
+     *
+     * @return ArrayList<DFMessage> containing a DFMessage for each entry in the DataFlash log
+     */
+    fun getAllMessages(): ArrayList<DFMessage> {
+        val returnable = arrayListOf<DFMessage>()
+        rewind()
+        var lineCount = BigInteger.ZERO
+        var pct = 0
+        var nullCount = 0
+        while (lineCount < numLines) {
+            parseNext()?.let {
+                returnable.add(it)
+            } ?: run {
+                nullCount++
+            }
+            val newPct = offset / dataLen
+            if(pct != newPct) {
+                pct = newPct
+                println(newPct)
+            }
+            lineCount ++
+        }
+        offset = 0
+        bufferedReader.close()
+        return returnable
+    }
+
+
+    /**
+     * Warning, possibly long-running operation.
+     *
+     * This function returns, for each field specified, an ArrayList containing every instance value for a given field
+     * paired with the timestamp of that values occurrence. In each Pair, the timestamp will be the first element and
+     * the value is the second. The list returned will be ordered in same order as the DataFlash log (presumably,
+     * time-sorted order). The ArrayLists are returned in a HashMap, in which each key is the name of the field, and the
+     * value is the ArrayList.
+     *
+     * In the case that a given field does not occur in the log, and empty ArrayList will be returned.
+     *
+     * Field names are case-sensitive.
+     *
+     * @param fields a collection of field names to search for the values of within the DataFlash log
+     * @return HashMap containing an ArrayList<Pair<Long, Any>> for each given field. Where the Pair's first element is
+     * the timestamp, and the second element is the value of the field at that instance
+     */
+    fun getFieldLists(fields : Collection<String>) : HashMap<String, ArrayList<Pair<Long,Any>>> {
+        rewind()
+        var lineCount = BigInteger.ZERO
+        var pct = 0
+
+        val returnable = hashMapOf<String, ArrayList<Pair<Long,Any>>>()
+        fields.forEach {
+            returnable[it] = arrayListOf()
+        }
+
+        while (lineCount < numLines) {//dataMap.length
+
+            parseNext()?.let { m ->
+                val intersection = m.fieldnames intersect fields
+                intersection.forEach {
+                    returnable[it]?.add(Pair(m.timestamp, m.getAttr(it).first!!))
+                }
+            }
+            val newPct = offset / dataLen//dataMap.length
+            if(pct != newPct) {
+                pct = newPct
+                println(newPct)
+            }
+            lineCount ++
+        }
+        offset = 0
+        bufferedReader.close()
+        return returnable
+    }
+
+
+    /**
+     * Warning, possibly long-running operation.
+     *
+     * This function returns an ArrayList containing every instance value for a given field paired with the timestamp
+     * of that instance values occurrence, where the given lambda function also returns true when passed the DFMessage
+     * (the DataFlash log entry) the value was found in . In each Pair, the timestamp will be the first element and the
+     * value is the second. The list returned will be ordered in same order as the DataFlash log (presumably,
+     * time-sorted order).
+     *
+     * Field names are case-sensitive.
+     *
+     * This function is useful in the case where one only wants the instance of a field under certain conditions.
+     *
+     * Ex: val dfReader = DFReaderText("dataflash.log", null, null)
+     * val altsFromBaroMessages = dfReader.getFieldListConditional("Alt", { message -> message.getType() == "BARO" })
+     *
+     * The above example would return the list of timestamp/instance-value pair from the DataFlash log where the
+     * DFMessage's type was "BARO"
+     *
+     * @param field a field name to search for the values of within the DataFlash log
+     * @param shouldInclude a lambda function, which must return true to add a timestamp/instance-value pair to the
+     * returned ArrayList
+     * @return ArrayList<Pair<Long, Any>> where the Pair's first element is the timestamp, and the second element is the value of the field at that instance
+     */
+    fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>> {
+        rewind()
+        var lineCount = BigInteger.ZERO
+        var pct = 0
+
+        val returnable = ArrayList<Pair<Long,Any>>()
+
+        while (lineCount < numLines) {
+
+            parseNext()?.let { m ->
+                if(m.fieldnames.contains(field) && shouldInclude(m)) {
+                    returnable.add(Pair(m.timestamp, m.getAttr(field).first!!))
+                }
+            }
+            val newPct = offset / dataLen
+            if(pct != newPct) {
+                pct = newPct
+                println(newPct)
+            }
+            lineCount ++
+        }
+        offset = 0
+        bufferedReader.close()
+        return returnable
+    }
+
+
+
+    /**
+     * Initialise arrays for fast recvMatch()
      */
     private fun initArrays() {
         println("initArrays")
@@ -145,40 +271,41 @@ class DFReaderText(filename: String, zeroBasedTime: Boolean?, progressCallback: 
         ofs = offset
         var pct = 0
 
-        while (ofs + 16 < dataMap.length) {//dataLen) {
-            var mtype = dataMap.substring(ofs, ofs + 4)
-            if (mtype[3] == ',') {
-                mtype = mtype.substring(0, 3)
+        while (ofs + 16 < dataLen) {//dataLen) {
+            val line = bufferedReader.readLine() ?: break
+            var mType = line.substring(0, 4)
+            if (mType[3] == ',') {
+                mType = mType.substring(0, 3)
             }
-            if (!offsets.containsKey(mtype)) {
-                counts[mtype] = 0
-                offsets[mtype] = arrayListOf()
+            if (!offsets.containsKey(mType)) {
+                counts[mType] = 0
+                offsets[mType] = arrayListOf()
                 offset = ofs
                 parseNext()
             }
-            offsets[mtype]?.add(ofs)
+            offsets[mType]?.add(ofs)
 
-            counts[mtype] = counts[mtype]!! + 1
+            counts[mType] = counts[mType]!! + 1
 
-            if (mtype == "FMT") {
-                offset = ofs
-                parseNext()
-            }
-
-            if (mtype == "FMTU") {
+            if (mType == "FMT") {
                 offset = ofs
                 parseNext()
             }
 
-            ofs = dataMap.indexOf("\n", ofs)
+            if (mType == "FMTU") {
+                offset = ofs
+                parseNext()
+            }
+
+            ofs += line.length //indexOf("\n", ofs)
             if (ofs == -1) {
                 break
             }
             ofs += 1
-            val newPct = (100 * ofs) / dataMap.length
+            val newPct = ((100.0 * ofs) / dataLen).toInt()
             progressCallback?.let { callback ->
                 if(newPct != pct) {
-                    callback.update(newPct)
+                    callback(newPct)
                     pct = newPct
                 }
             }
@@ -192,12 +319,12 @@ class DFReaderText(filename: String, zeroBasedTime: Boolean?, progressCallback: 
     }
 
     /**
-     * skip fwd to next msg matching given type set
+     * Skip Forward to next message matching given type set
      */
     fun skipToType(type : String) {
 
 //        if (type_list == null) {
-//// always add some key msg types so we can track flightmode, params etc
+//// always add some key msg types, so we can track "flightmode," "params," etc.
 //            type_list = type.copy()
 //            type_list.update(hashSetOf(["MODE", "MSG", "PARM", "STAT"]))
 //            type_list = list(type_list)
@@ -230,31 +357,28 @@ class DFReaderText(filename: String, zeroBasedTime: Boolean?, progressCallback: 
     }
 
     /**
-     * read one message, returning it as an object
+     * Read one message, returning it as an DFMessage
      */
     override fun parseNext() : DFMessage? {
 
         var elements = arrayListOf<String>()
 
+        var line :String?
         while (true) {
-            var endline = dataMap.indexOf("\n", offset)
-            if (endline == -1) {
-                endline = dataLen
-                if (endline < offset) {
-                    break
-                }
-            }
 
-            val s = dataMap.substring(offset,endline).trimEnd()
-            elements = ArrayList(s.split(delimeter))
-            offset = endline + 1
+            line = bufferedReader.readLine()
+            if(line == null || line.isEmpty() )
+                break
+
+            elements = ArrayList(line.split(delimiter))
+            offset += line.length + 1
             if (elements.size >= 2) {
                 // this_line is good
                 break
             }
         }
 
-        if (offset > dataLen) {
+        if (offset > dataLen || line == null) {
             return null
         }
 
@@ -282,13 +406,13 @@ class DFReaderText(filename: String, zeroBasedTime: Boolean?, progressCallback: 
 
         elements = ArrayList(elements.subList(1, elements.size))
 
-        val name = fmt.name//.rstrip("\0")
+        val name = fmt.name
         if (name == "FMT") {
-            // add to formats
+            // add to "formats"
             // name, len, format, headings
             val fType = elements[0].toInt()
             val fName = elements[2]
-            if (delimeter == ",") {
+            if (delimiter == ",") {
                 val last = elements.subList(4, elements.size).joinToString(",")
                 elements = ArrayList(elements.subList(0,4))
                 elements.add(last)
@@ -309,7 +433,7 @@ class DFReaderText(filename: String, zeroBasedTime: Boolean?, progressCallback: 
             formats[fName] = newFmt
             idToName[fType] = fName
         }
-        var m : DFMessage? = null
+        val m: DFMessage?
         try {
             m = DFMessage(fmt, elements, false, this)
         } catch (valError: Throwable) {
@@ -330,7 +454,7 @@ class DFReaderText(filename: String, zeroBasedTime: Boolean?, progressCallback: 
     }
 
     /**
-     * get the last timestamp in the log
+     * Get the last timestamp in the log
      */
     private fun lastTimestamp() : Long {
         var highestOffset = 0
@@ -350,15 +474,26 @@ class DFReaderText(filename: String, zeroBasedTime: Boolean?, progressCallback: 
 
     /**
      * Finds and returns the first index of the tag in the given range
+     *
+     * return the char index of the next instance of the tag after start and before end, or -1 if no instance was found
      */
     private fun findNextTag(tag: String, start: Int?, end: Int?): Int {
-        val a = start ?: 0
-        val z = end ?: fileLines.size-1
-        for (i in a..z) {
+        val a = start?.toBigInteger() ?: BigInteger.ZERO
+        val z = end?.toBigInteger() ?: (numLines - BigInteger.valueOf(1L))
+
+        val fr = FileReader(File(filename))
+        val br = BufferedReader(fr)
+
+        var head = a.toInt()
+        br.skip(a.toLong())
+
+        while (head < z.toInt()) {
 //            if (fileLines[i][0].startsWith(tag)) {
-            if (fileLines[i].startsWith(tag)) {
-                return i
+            val line = br.readLine()
+            if (line.startsWith(tag)) {
+                return head
             }
+            head += line.length + "\n".length
         }
         return -1
     }
