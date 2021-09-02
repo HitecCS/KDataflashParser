@@ -55,6 +55,11 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
     private var count = 0
     private var ofs = 0
 
+    private val startTime: Long
+        get() { return clock?.timebase?.toLong() ?: 0L }
+
+    private var endTime: Long = 0L
+
     init {
         this.zeroTimeBase = zeroBasedTime ?: false
         // read the whole file into memory for simplicity
@@ -271,7 +276,8 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
         ofs = offset
         var pct = 0
 
-        while (ofs + 16 < dataLen) {//dataLen) {
+        var lastMessage : DFMessage? = null
+        while (ofs + 16 < dataLen) {
             val line = bufferedReader.readLine() ?: break
             var mType = line.substring(0, 4)
             if (mType[3] == ',') {
@@ -281,7 +287,9 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
                 counts[mType] = 0
                 offsets[mType] = arrayListOf()
                 offset = ofs
-                parseNext()
+                parseNext()?.let {
+                    lastMessage = it
+                }
             }
             offsets[mType]?.add(ofs)
 
@@ -289,12 +297,16 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
 
             if (mType == "FMT") {
                 offset = ofs
-                parseNext()
+                parseNext()?.let {
+                    lastMessage = it
+                }
             }
 
             if (mType == "FMTU") {
                 offset = ofs
-                parseNext()
+                parseNext()?.let {
+                    lastMessage = it
+                }
             }
 
             ofs += line.length //indexOf("\n", ofs)
@@ -309,6 +321,10 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
                     pct = newPct
                 }
             }
+        }
+
+        lastMessage?.let {
+            endTime = it.timestamp
         }
 
 
@@ -451,6 +467,11 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
         addMsg(m)
 
         return m
+    }
+
+
+    fun getStartAndEndTimes() : Pair<Long, Long> {
+        return Pair(startTime , endTime )
     }
 
     /**
