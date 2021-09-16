@@ -46,6 +46,12 @@ abstract class DFReader {
 
     abstract fun parseNext() : DFMessage?
 
+    //TODO abstract fun getAllMessages(): ArrayList<DFMessage>
+
+    //TODO abstract fun getFieldLists(fields : Collection<String>) : HashMap<String, ArrayList<Pair<Long,Any>>>
+
+    //TODO abstract fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>>
+
     open fun rewind() {
         // be careful not to replace self.messages with a new hash;
         // some people have taken a reference to self.messages and we
