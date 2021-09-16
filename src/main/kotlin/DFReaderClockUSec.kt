@@ -27,7 +27,7 @@
 /**
  * DFReaderClockUSec - use microsecond timestamps from messages
  */
-class DFReaderClockUSec(): DFReaderClock() {
+class DFReaderClockUSec : DFReaderClock() {
 
     /**
      * work out time basis for the log - even newer style
@@ -42,7 +42,7 @@ class DFReaderClockUSec(): DFReaderClock() {
     /**
      * The TimeMS in some messages is not from *our* clock!
      */
-    fun typeHasGoodTimeMS(type: String) : Boolean {
+    private fun typeHasGoodTimeMS(type: String) : Boolean {
         if (type.startsWith("ACC")) {
             return false
         }
@@ -52,7 +52,7 @@ class DFReaderClockUSec(): DFReaderClock() {
         return true
     }
 
-    fun shouldUseMSecField0(m: DFMessage) : Boolean {
+    private fun shouldUseMSecField0(m: DFMessage) : Boolean {
         if (typeHasGoodTimeMS (m.getType())) {
             return false
         }

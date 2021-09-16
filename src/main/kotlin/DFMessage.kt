@@ -256,12 +256,12 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
 //            var name = fmt.columns[i]
 //            if (name == "Mode" && fmt.columns.contains("ModeNum")) {
 //                name = "ModeNum"
-//            var  v = __getattr__(name)
+//            var  v = getAttr(name)
 //            if (v is String) {
 //                v = bytes(v, "ascii")
 //            }
 //            if (v is Array<out Any>::class) {
-//                v = v.tostring()
+//                v = v.toString()
 //            }
 //            if (mul != null) {
 //                v /= mul

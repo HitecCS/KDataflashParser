@@ -271,7 +271,6 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
         ofs = offset
         var pct = 0
 
-        var lastMessage : DFMessage? = null
         while (ofs + 16 < dataLen) {
             val line = bufferedReader.readLine() ?: break
             var mType = line.substring(0, 4)
@@ -282,9 +281,7 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
                 counts[mType] = 0
                 offsets[mType] = arrayListOf()
                 offset = ofs
-                parseNext()?.let {
-                    lastMessage = it
-                }
+                parseNext()
             }
             offsets[mType]?.add(ofs)
 
@@ -292,16 +289,12 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
 
             if (mType == "FMT") {
                 offset = ofs
-                parseNext()?.let {
-                    lastMessage = it
-                }
+                parseNext()
             }
 
             if (mType == "FMTU") {
                 offset = ofs
-                parseNext()?.let {
-                    lastMessage = it
-                }
+                parseNext()
             }
 
             ofs += line.length //indexOf("\n", ofs)
@@ -343,14 +336,14 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
 //        var smallest_index = -1
 //        var smallest_offset = data_len
 //        for (i in 0..type_list!!.size) {
-//            mtype = type_list[i]
-//            if (not mtype in self . counts) {
+//            mType = type_list[i]
+//            if (not mType in self . counts) {
 //                continue
 //            }
-//            if (indexes[i] >= counts[mtype]) {
+//            if (indexes[i] >= counts[mType]) {
 //                continue
 //            }
-//            ofs = offsets[mtype][indexes[i]]
+//            ofs = offsets[mType][indexes[i]]
 //            if (ofs < smallest_offset) {
 //                smallest_offset = ofs
 //                smallest_index = i

@@ -28,15 +28,15 @@
  * parse a generic dataflash file
  */
 abstract class DFReader {
-    var clock : DFReaderClock? = null
+    private var clock : DFReaderClock? = null
     var timestamp : Int = 0
     var mavType = MAV_TYPE.MAV_TYPE_FIXED_WING
     var verbose = false
-    var params = HashMap<String, Float>()
-    var flightmodes : Array<Array<Any?>>? = null
+    private var params = HashMap<String, Float>()
+    private var flightModes : Array<Array<Any?>>? = null
     var messages = hashMapOf<String, Any>() //can be DFReader or DFMessage
     var zeroTimeBase = false
-    var flightmode : Any? = null
+    private var flightMode : Any? = null
     var percent : Float = 0f
 
     val startTime: Long
@@ -53,22 +53,22 @@ abstract class DFReader {
     //TODO abstract fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>>
 
     open fun rewind() {
-        // be careful not to replace self.messages with a new hash;
-        // some people have taken a reference to self.messages and we
-        // need their messages to disappear to . If they want their own
+        // Be careful not to replace self.messages with a new hash;
+        // some people have taken a reference to self.messages, and we
+        // need their messages to disappear to. If they want their own
         // copy they can copy.copy it!
         messages.clear()
         messages["MAV"] = this
-        if (flightmodes != null && flightmodes!!.isNotEmpty()) {
-            flightmode = flightmodes!![0][0]
+        flightMode = if (flightModes != null && flightModes!!.isNotEmpty()) {
+            flightModes!![0][0]
         } else {
-            flightmode = "UNKNOWN"
+           "UNKNOWN"
         }
         percent = 0f
         clock?.rewindEvent()
     }
 
-    fun initClockPx4 (px4_msg_time: DFMessage, px4_msg_gps : DFMessage) : Boolean {
+    private fun initClockPx4 (px4_msg_time: DFMessage, px4_msg_gps : DFMessage) : Boolean {
         clock = DFReaderClockPx4()
         if ( !zeroTimeBase ) {
             (clock as DFReaderClockPx4).setPx4Timebase(px4_msg_time)
@@ -77,17 +77,17 @@ abstract class DFReader {
         return true
     }
 
-    fun initClockMsec() {
+    private fun initClockMsec() {
         // it is a new style flash log with full timestamps
         clock = DFReaderClockMSec()
     }
 
-    fun initClockUsec() {
+    private fun initClockUsec() {
         clock = DFReaderClockUSec()
     }
 
-    fun initClockGpsInterpolated(clock: DFReaderClock) {
-        this.clock = clock
+    private fun initClockGpsInterpolated(interpolatedClock: DFReaderClock) {
+        clock = interpolatedClock
     }
 
     /**
@@ -152,9 +152,9 @@ abstract class DFReader {
 //                      we've received two distinct, non-zero GPS
 //                      packets without finding a decent clock to
 //                      use; fall back to interpolation . Q : should
-//                      we wait a few more messages befoe doing
+//                      we wait a few more messages before doing
 //                      this?
-                        this.initClockGpsInterpolated(gpsClock)
+                        initClockGpsInterpolated(gpsClock)
                         haveGoodClock = true
                         break
                     }
@@ -174,15 +174,15 @@ abstract class DFReader {
             }
         }
 
-        //        print("clock is " + str(this.clock))
+        //        print("clock is " + str(clock))
         if (!haveGoodClock) {
 //             we failed to find any GPS messages to set a time
 //             base for usec and msec clocks . Also, not a
 //             PX4 - style log
             if (firstUsStamp != null) {
-                this.initClockUsec()
+                initClockUsec()
             } else if (firstMsStamp != null) {
-                this.initClockMsec()
+                initClockMsec()
             }
         }
         rewind()
@@ -193,10 +193,10 @@ abstract class DFReader {
     /**
      * set time for a message
      */
-    fun setTime(m: DFMessage) {
+    private fun setTime(m: DFMessage) {
         // really just left here for profiling
         m.timestamp = timestamp.toLong()
-        if (m.fieldnames.isNotEmpty() && this.clock != null)
+        if (m.fieldnames.isNotEmpty() && clock != null)
             clock!!.setMessageTimestamp(m)
     }
 
@@ -209,10 +209,10 @@ abstract class DFReader {
      */
     fun addMsg(m: DFMessage) {
         val type = m.getType()
-        this.messages[type] = m
+        messages[type] = m
         if (m.fmt.instanceField != null) {
             val i = m.getAttr(m.fmt.instanceField!!).first
-            this.messages[String.format("%s[%s]",type, i)] = m
+            messages[String.format("%s[%s]",type, i)] = m
         }
 
         clock?.messageArrived(m)
@@ -220,40 +220,40 @@ abstract class DFReader {
 
         if (type == "MSG" && m.Message != null) {
             if (m.Message!!.indexOf("Rover") != -1) {
-                this.mavType = MAV_TYPE.MAV_TYPE_GROUND_ROVER
+                mavType = MAV_TYPE.MAV_TYPE_GROUND_ROVER
             } else if (m.Message!!.indexOf("Plane") != -1) {
-                this.mavType = MAV_TYPE.MAV_TYPE_FIXED_WING
+                mavType = MAV_TYPE.MAV_TYPE_FIXED_WING
             } else if (m.Message!!.indexOf("Copter") != -1) {
-                this.mavType = MAV_TYPE.MAV_TYPE_QUADROTOR
+                mavType = MAV_TYPE.MAV_TYPE_QUADROTOR
             } else if (m.Message!!.startsWith("Antenna")) {
-                this.mavType = MAV_TYPE.MAV_TYPE_ANTENNA_TRACKER
+                mavType = MAV_TYPE.MAV_TYPE_ANTENNA_TRACKER
             } else if (m.Message!!.indexOf("ArduSub") != -1) {
-                this.mavType = MAV_TYPE.MAV_TYPE_SUBMARINE
+                mavType = MAV_TYPE.MAV_TYPE_SUBMARINE
             }
         }
         if (type == "MODE") {
             if (m.Mode != null && m.Mode is String) {
-                this.flightmode = (m.Mode as String).uppercase()
+                flightMode = (m.Mode as String).uppercase()
             } else if ( m.fieldnames.contains("ModeNum")) {
-                val mapping = Util.mode_mapping_bynumber(this.mavType)
-                if (mapping != null && mapping.contains(m.ModeNum)) {
-                    this.flightmode = mapping[m.ModeNum]
+                val mapping = Util.modeMappingByNumber(mavType)
+                flightMode = if (mapping != null && mapping.contains(m.ModeNum)) {
+                    mapping[m.ModeNum]
                 } else {
-                    this.flightmode = "UNKNOWN"
+                    "UNKNOWN"
                 }
             } else if ( m.Mode != null) {
-                this.flightmode = Util.mode_string_acm(m.Mode!!.toInt())
+                flightMode = Util.modeStringACM(m.Mode!!.toInt())
             }
 
 
         }
         if (type == "STAT" && m.fieldnames.contains("MainState")) {
-            this.flightmode = Util.mode_string_px4(m.MainState!!)
+            flightMode = Util.modeStringPx4(m.MainState!!)
         }
         if (type == "PARM" && m.Name != null) {
-            this.params[m.Name!!] = m.Value!!
+            params[m.Name!!] = m.Value!!
         }
-        this.setTime(m)
+        setTime(m)
     }
 
     /**
@@ -272,14 +272,14 @@ abstract class DFReader {
 //        while (true) {
 ////            if ( typeAsSet != null)
 ////                skip_to_type(typeAsSet) todo
-//            val m = this.recv_msg()
+//            val m = recv_msg()
 //            if (m == null) {
 //                return null
 //            }
 //            if (typeAsSet != null && !typeAsSet.contains(m.get_type())) {
 //                continue
 //            }
-//            if (!Util.evaluate_condition(condition, this.messages)) {
+//            if (!Util.evaluate_condition(condition, messages)) {
 //                continue
 //            }
 //            return m
@@ -289,7 +289,7 @@ abstract class DFReader {
      * check if a condition is true
      */
 //    fun check_condition( condition) : Boolean {
-//        return Util.evaluate_condition(condition, this.messages)
+//        return Util.evaluate_condition(condition, messages)
 //    }
 
     /**
@@ -297,46 +297,46 @@ abstract class DFReader {
      * parameter with a default
      */
     fun param( name: String, default : Any? = null) : Any? {
-        if (!this.params.contains(name)) {
+        if (!params.contains(name)) {
             return default
         }
-        return this.params[name]
+        return params[name]
     }
 
     /**
-     * return an array of tuples for all flightmodes in log. Tuple is (modestring, t0, t1)
+     * return an array of tuples for all flightModes in log. Tuple is (modeString, t0, t1)
      */
-    fun flightmode_list() {
-//        var tstamp: Long?= null
-//        val fmode : Any? = null //unknown type
-//        if (_flightmodes == null) {
-//            this._rewind()
-//            this._flightmodes = arrayOf()
+    fun flightModeList() {
+//        var tStamp: Long?= null
+//        val fMode : Any? = null //unknown type
+//        if (flightModes == null) {
+//            _rewind()
+//            flightModes = arrayOf()
 //            val types = hashSetOf(listOf("MODE"))
 //            while(true) {
-//                val m = this.recv_match(type = types)
+//                val m = recv_match(type = types)
 //                if (m == null)
 //                    break
-//                tstamp = m._timestamp
-//                if (this.flightmode == fmode)
+//                tStamp = m._timestamp
+//                if (flightMode == fMode)
 //                    continue
-//                if (this._flightmodes!!.size > 0) {
-//                    (mode, t0, t1) = this._flightmodes[-1]
-//                    this._flightmodes[-1] = (mode, t0, tstamp)
+//                if (flightModes!!.size > 0) {
+//                    (mode, t0, t1) = flightModes[-1]
+//                    flightModes[-1] = (mode, t0, tStamp)
 //                }
-//                this._flightmodes.add((this.flightmode, tstamp, null))
-//                fmode = this.flightmode
+//                flightModes.add((flightMode, tStamp, null))
+//                fMode = flightMode
 //            }
-//            if (tstamp != null) {
-//                (mode, t0, t1) = this._flightmodes[-1]
-//                this._flightmodes[-1] = (mode, t0, this.last_timestamp())
+//            if (tStamp != null) {
+//                (mode, t0, t1) = flightModes[-1]
+//                flightModes[-1] = (mode, t0, last_timestamp())
 //            }
 //        }
-//        this._rewind()
-//        return this._flightmodes
+//        _rewind()
+//        return flightModes
     }
 
-    fun u_ord(c : Byte) : Int {
+    fun uOrd(c : Byte) : Int {
         return c.toInt()
     }
 

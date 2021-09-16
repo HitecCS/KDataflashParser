@@ -29,11 +29,7 @@
  */
 class DFReaderClockPx4 : DFReaderClock() {
 
-    var px4Timebase : Int
-
-    init {
-        px4Timebase = 0
-    }
+    var px4Timebase : Int = 0
 
     /**
      * work out time basis for the log - PX4 native

@@ -1,5 +1,4 @@
 import java.io.BufferedReader
-import java.io.File
 import java.io.FileReader
 
 /*
@@ -30,7 +29,7 @@ import java.io.FileReader
 
 class Util {
     companion object {
-        val mode_mapping_apm = hashMapOf(
+        private val modeMappingAPM = hashMapOf(
             Pair(0, "MANUAL"),
             Pair(1, "CIRCLE"),
             Pair(2, "STABILIZE"),
@@ -57,7 +56,7 @@ class Util {
             Pair(24, "THERMAL"),
         )
 
-        val mode_mapping_acm = hashMapOf(
+        private val modeMappingACM = hashMapOf(
             Pair(0, "STABILIZE"),
             Pair(1, "ACRO"),
             Pair(2, "ALT_HOLD"),
@@ -84,7 +83,7 @@ class Util {
             Pair(24, "ZIGZAG"),
         )
 
-        val mode_mapping_rover = hashMapOf(
+        private val modeMappingRover = hashMapOf(
             Pair(0, "MANUAL"),
             Pair(1, "ACRO"),
             Pair(2, "LEARNING"),
@@ -100,7 +99,7 @@ class Util {
             Pair(16, "INITIALISING")
         )
 
-        val mode_mapping_tracker = hashMapOf(
+        private val modeMappingTracker = hashMapOf(
             Pair(0, "MANUAL"),
             Pair(1, "STOP"),
             Pair(2, "SCAN"),
@@ -109,7 +108,7 @@ class Util {
             Pair(16, "INITIALISING")
         )
 
-        val mode_mapping_sub = hashMapOf(
+        private val modeMappingSub = hashMapOf(
             Pair(0, "STABILIZE"),
             Pair(1, "ACRO"),
             Pair(2, "ALT_HOLD"),
@@ -120,26 +119,50 @@ class Util {
             Pair(16, "POSHOLD"),
             Pair(19, "MANUAL"),
         )
-        var AP_MAV_TYPE_MODE_MAP_DEFAULT = hashMapOf(
+        private var AP_MAV_TYPE_MODE_MAP_DEFAULT = hashMapOf(
 //        # copter
-            Pair(MAV_TYPE.MAV_TYPE_HELICOPTER, mode_mapping_acm),
-            Pair(MAV_TYPE.MAV_TYPE_TRICOPTER, mode_mapping_acm),
-            Pair(MAV_TYPE.MAV_TYPE_QUADROTOR, mode_mapping_acm),
-            Pair(MAV_TYPE.MAV_TYPE_HEXAROTOR, mode_mapping_acm),
-            Pair(MAV_TYPE.MAV_TYPE_OCTOROTOR, mode_mapping_acm),
-            Pair(MAV_TYPE.MAV_TYPE_DECAROTOR, mode_mapping_acm),
-            Pair(MAV_TYPE.MAV_TYPE_DODECAROTOR, mode_mapping_acm),
-            Pair(MAV_TYPE.MAV_TYPE_COAXIAL, mode_mapping_acm),
+            Pair(MAV_TYPE.MAV_TYPE_HELICOPTER, modeMappingACM),
+            Pair(MAV_TYPE.MAV_TYPE_TRICOPTER, modeMappingACM),
+            Pair(MAV_TYPE.MAV_TYPE_QUADROTOR, modeMappingACM),
+            Pair(MAV_TYPE.MAV_TYPE_HEXAROTOR, modeMappingACM),
+            Pair(MAV_TYPE.MAV_TYPE_OCTOROTOR, modeMappingACM),
+            Pair(MAV_TYPE.MAV_TYPE_DECAROTOR, modeMappingACM),
+            Pair(MAV_TYPE.MAV_TYPE_DODECAROTOR, modeMappingACM),
+            Pair(MAV_TYPE.MAV_TYPE_COAXIAL, modeMappingACM),
 //        # plane
-            Pair(MAV_TYPE.MAV_TYPE_FIXED_WING, mode_mapping_apm),
+            Pair(MAV_TYPE.MAV_TYPE_FIXED_WING, modeMappingAPM),
 //        # rover
-            Pair(MAV_TYPE.MAV_TYPE_GROUND_ROVER, mode_mapping_rover),
+            Pair(MAV_TYPE.MAV_TYPE_GROUND_ROVER, modeMappingRover),
 //        # boat
-            Pair(MAV_TYPE.MAV_TYPE_SURFACE_BOAT, mode_mapping_rover), //# for the time being
+            Pair(MAV_TYPE.MAV_TYPE_SURFACE_BOAT, modeMappingRover), //# for the time being
 //        # tracker
-            Pair(MAV_TYPE.MAV_TYPE_ANTENNA_TRACKER, mode_mapping_tracker),
+            Pair(MAV_TYPE.MAV_TYPE_ANTENNA_TRACKER, modeMappingTracker),
 //        # sub
-            Pair(MAV_TYPE.MAV_TYPE_SUBMARINE, mode_mapping_sub),
+            Pair(MAV_TYPE.MAV_TYPE_SUBMARINE, modeMappingSub),
+        )
+
+        /**
+         * Map from a PX4 "main_state" to a string; see msg/commander_state.msg
+         * This allows us to map sdlog STAT.MainState to a simple "mode"
+         * string, used in DFReader and possibly other places.  These are
+         * related but distinct from what is found in mavlink messages; see
+         * "Custom mode definitions", below.
+         */
+        private val mainstateMappingPx4 = hashMapOf(
+            Pair(0 , "MANUAL"),
+            Pair(1 , "ALTCTL"),
+            Pair(2 , "POSCTL"),
+            Pair(3 , "AUTO_MISSION"),
+            Pair(4 , "AUTO_LOITER"),
+            Pair(5 , "AUTO_RTL"),
+            Pair(6 , "ACRO"),
+            Pair(7 , "OFFBOARD"),
+            Pair(8 , "STAB"),
+            Pair(9 , "RATTITUDE"),
+            Pair(10 , "AUTO_TAKEOFF"),
+            Pair(11 , "AUTO_LAND"),
+            Pair(12 , "AUTO_FOLLOW_TARGET"),
+            Pair(13 , "MAX"),
         )
 //// TODO
 ///**
@@ -182,22 +205,21 @@ class Util {
          * return true if a file appears to be a valid text log
          * from: DFReader.py
          */
-        fun DFReader_is_text_log(filename: String) : Boolean {
+        fun isDFTextLog(filename: String) : Boolean {
             val br = BufferedReader(FileReader(filename))
-            try {
-                return br.readLine().contains("FMT")
+            return try {
+                br.readLine().contains("FMT")
             } catch (e : Throwable) {
                 println(e.message)
+                false
             }
-
-            return false
         }
 
         /**
          * evaluation an expression
          * from: Python mavexpression.py
          */
-//        fun evaluate_expression(expression, vars, nocondition = False) {
+//        fun evaluate_expression(expression, vars, noCondition = False) {
 //            // first check for conditions which take the form EXPRESSION { CONDITION }
 //            val v = Any?
 //            if (expression[-1] == '}') {
@@ -212,7 +234,7 @@ class Util {
 //                } catch (e: Throwable) {
 //                    return null
 //                }
-//                if (!nocondition and not v) {
+//                if (!noCondition && !v) {
 //                    return null
 //                }
 //            }
@@ -226,7 +248,7 @@ class Util {
 
 
         /**
-         * evaluation a conditional (boolean) statement
+         * Evaluation a conditional (boolean) statement
          * from: Python mavutil.py
          */
 //        fun evaluate_condition(condition, vars): Boolean {
@@ -239,58 +261,35 @@ class Util {
 //        }
 
         /**
-         * return dictionary mapping mode numbers to name, or None if unknown
+         * Return dictionary mapping mode numbers to name, or None if unknown
          */
-        fun mode_mapping_bynumber(mav_type: MAV_TYPE): HashMap<Int, String>? {
-            return if (AP_MAV_TYPE_MODE_MAP_DEFAULT.containsKey(mav_type)) AP_MAV_TYPE_MODE_MAP_DEFAULT[mav_type] else null
+        fun modeMappingByNumber(mavType: MAV_TYPE): HashMap<Int, String>? {
+            return if (AP_MAV_TYPE_MODE_MAP_DEFAULT.containsKey(mavType)) AP_MAV_TYPE_MODE_MAP_DEFAULT[mavType] else null
         }
 
         /**
-         * return mode string for APM:Plane
+         * Return mode string for APM:Plane
          */
-        fun mode_string_apm(mode_number: Int): String {
-            if (mode_mapping_apm.contains(mode_number))
-                return mode_mapping_apm[mode_number]!!
-            return "Mode($mode_number)"
+        fun modeStringAPM(modeNumber: Int): String {
+            if (modeMappingAPM.contains(modeNumber))
+                return modeMappingAPM[modeNumber]!!
+            return "Mode($modeNumber)"
         }
 
         /**
-         * return mode string for APM:Copter
+         * Return mode string for APM:Copter
          */
-        fun mode_string_acm(mode_number: Int): String {
-            if (mode_mapping_acm.contains(mode_number))
-                return mode_mapping_acm[mode_number]!!
-            return "Mode(%$mode_number)"
+        fun modeStringACM(modeNumber: Int): String {
+            if (modeMappingACM.contains(modeNumber))
+                return modeMappingACM[modeNumber]!!
+            return "Mode(%$modeNumber)"
         }
 
-        /** map from a PX4 "main_state" to a string; see msg/commander_state.msg
-         This allows us to map sdlog STAT.MainState to a simple "mode"
-         string, used in DFReader and possibly other places.  These are
-         related but distict from what is found in mavlink messages; see
-         "Custom mode definitions", below.
-        */
-        val mainstate_mapping_px4 = hashMapOf(
-            Pair(0 , "MANUAL"),
-            Pair(1 , "ALTCTL"),
-            Pair(2 , "POSCTL"),
-            Pair(3 , "AUTO_MISSION"),
-            Pair(4 , "AUTO_LOITER"),
-            Pair(5 , "AUTO_RTL"),
-            Pair(6 , "ACRO"),
-            Pair(7 , "OFFBOARD"),
-            Pair(8 , "STAB"),
-            Pair(9 , "RATTITUDE"),
-            Pair(10 , "AUTO_TAKEOFF"),
-            Pair(11 , "AUTO_LAND"),
-            Pair(12 , "AUTO_FOLLOW_TARGET"),
-            Pair(13 , "MAX"),
-        )
-
-        fun mode_string_px4(MainState : Int) : String {
-            return if(mainstate_mapping_px4.containsKey(MainState)) mainstate_mapping_px4[MainState]!! else "Unknown"
+        fun modeStringPx4(MainState : Int) : String {
+            return if(mainstateMappingPx4.containsKey(MainState)) mainstateMappingPx4[MainState]!! else "Unknown"
         }
 
-        fun null_term(str : String) : String {
+        fun nullTerm(str : String) : String {
             return str + ""
         }
     }
