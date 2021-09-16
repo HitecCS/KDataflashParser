@@ -39,6 +39,11 @@ abstract class DFReader {
     var flightmode : Any? = null
     var percent : Float = 0f
 
+    val startTime: Long
+        get() { return clock?.timebase?.toLong() ?: 0L }
+
+    var endTime: Long = 0L
+
     abstract fun parseNext() : DFMessage?
 
     open fun rewind() {
