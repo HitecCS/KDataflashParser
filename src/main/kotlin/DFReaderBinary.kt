@@ -31,61 +31,56 @@ import java.nio.ByteBuffer
 /**
  * parse a binary dataflash file
  */
-class DFReaderBinary(private val filename: String, zero_based_time: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
+class DFReaderBinary(filename: String, zero_based_time: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
 
-//    var filehandle : Any//Placeholder type
-    private var dataMap : ByteArray
-    var formats : HashMap<Int, DFFormat>
-    private var HEAD1 : Int
-    private var HEAD2 : Int
-    var dataLen : Int
+    private var dataMap : ByteArray = File(filename).readBytes()
+    private var formats : HashMap<Int, DFFormat> = hashMapOf(Pair(
+        0x80, DFFormat(0x80,
+        "FMT",
+        89,
+        "BBnNZ",
+        "Type,Length,Name,Format,Columns")
+    ))
+    private val HEAD1 : Int = 0xA3
+    private val HEAD2 : Int = 0x95
+    private var dataLen : Int = dataMap.size
     private var prevType : Any? //Placeholder type
     private var offset : Int = 0
     private var remaining : Int = 0
     private var typeNums : ArrayList<Int>? = null //Placeholder type
-    private var unpackers : HashMap<Int, ByteBuffer>? = null
+    private val unpackers = hashMapOf<Int, ByteBuffer>()
 
     private var offsets =  arrayListOf<ArrayList<Int>>()
-    var counts = arrayListOf<Int>()
+    private var counts = arrayListOf<Int>()
     private var _count = 0
     private var nameToId = hashMapOf<String, Int>() //Guess
     private var idToName = hashMapOf<Int, String>() //Guess
+    private var indices : ArrayList<Int> = arrayListOf()
 
     init {
         // read the whole file into memory for simplicity
-        dataMap = File(filename).readBytes()
-        dataLen = dataMap.size
 
-        this.HEAD1 = 0xA3
-        this.HEAD2 = 0x95
-        this.unpackers = hashMapOf()
 //        if (sys.version_info.major < 3) {
 //            this.HEAD1 = chr(this.HEAD1)
 //            this.HEAD2 = chr(this.HEAD2)
 //        }
-        formats = hashMapOf(Pair(
-            0x80, DFFormat(0x80,
-            "FMT",
-            89,
-            "BBnNZ",
-            "Type,Length,Name,Format,Columns")
-        ))
-        this.zeroTimeBase = zero_based_time ?: false
-        this.prevType = null
-        this.initClock()
-        this.prevType = null
-        this.rewind()
-        this.initArrays()
+        zeroTimeBase = zero_based_time ?: false
+        prevType = null
+        initClock()
+        prevType = null
+        rewind()
+        initArrays()
     }
+
     /**
      * rewind to start of log
      */
     override fun rewind() {
         super.rewind()
-        this.offset = 0
-        this.remaining = this.dataLen
-        this.typeNums = null
-        this.timestamp = 0
+        offset = 0
+        remaining = this.dataLen
+        typeNums = null
+        timestamp = 0
     }
 
 
@@ -99,15 +94,13 @@ class DFReaderBinary(private val filename: String, zero_based_time: Boolean?, pr
         nameToId = hashMapOf()
         idToName = hashMapOf()
         for (i in 0..256) {
-            offsets.add(arrayListOf<Int>())
+            offsets.add(arrayListOf())
             counts.add(0)
         }
         val fmtType = 0x80
         var fmtuType : Int ?= null
         var ofs = 0
         var pct = 0
-        val HEAD1 = this.HEAD1
-        val HEAD2 = this.HEAD2
         val lengths = arrayOf(256, -1 )
         var fmt : DFFormat?
         var elements : List<Int>?
@@ -115,7 +108,7 @@ class DFReaderBinary(private val filename: String, zero_based_time: Boolean?, pr
         while ( ofs+3 < dataLen) {
             val hdr : ByteArray = dataMap.copyOfRange(ofs,ofs+3)
             if (hdr[0].toInt() != HEAD1 || hdr[1].toInt() != HEAD2) {
-                // avoid end of file garbage, 528 bytes has been use consistently throughout this implementation
+                // avoid end of file garbage, 528 bytes has been use consistently throughout this implementation,
                 // but it needs to be at least 249 bytes which is the block based logging page size (256) less a 6 byte header and
                 // one byte of data. Block based logs are sized in pages which means they can have up to 249 bytes of trailing space.
                 if (dataLen - ofs >= 528 || dataLen < 528)
@@ -123,33 +116,33 @@ class DFReaderBinary(private val filename: String, zero_based_time: Boolean?, pr
                 ofs += 1
                 continue
             }
-            val mtype = u_ord(hdr[2])
-            offsets[mtype].add(ofs)
+            val mType = u_ord(hdr[2])
+            offsets[mType].add(ofs)
 
-            if (lengths[mtype] == -1) {
-                if (!formats.contains(mtype)) {
+            if (lengths[mType] == -1) {
+                if (!formats.contains(mType)) {
                     if (dataLen - ofs >= 528 || dataLen < 528) {
-                        println(String.format("unknown msg type 0x%02x (%u) at %d" , mtype, mtype, ofs))
+                        println(String.format("unknown msg type 0x%02x (%u) at %d" , mType, mType, ofs))
                     }
                     break
                 }
                 offset = ofs
                 parseNext()
-                fmt = formats[mtype]
-                lengths[mtype] = fmt!!.len
-            } else if ( formats[mtype]!!.instanceField != null) {
+                fmt = formats[mType]
+                lengths[mType] = fmt!!.len
+            } else if ( formats[mType]!!.instanceField != null) {
                 parseNext()
             }
 
-            counts[mtype] += 1
-            val mlen = lengths[mtype]
+            counts[mType] += 1
+            val mLen = lengths[mType]
 
-            if (mtype == fmtType) {
-                val body = dataMap.copyOfRange(ofs+3,ofs+mlen)
-                if (body.size + 3 < mlen) {
+            if (mType == fmtType) {
+                val body = dataMap.copyOfRange(ofs+3,ofs+mLen)
+                if (body.size + 3 < mLen) {
                     break
                 }
-                fmt = formats[mtype]
+                fmt = formats[mType]
                 elements = listOf()//TODO struct.unpack(fmt!!.msgStruct, body))
                 val fType = elements[0]
                 val mFmt = DFFormat(
@@ -166,10 +159,10 @@ class DFReaderBinary(private val filename: String, zero_based_time: Boolean?, pr
                 }
             }
 
-            if (fmtuType != null && mtype == fmtuType) {
-                val fmt2 = formats[mtype]
-                val body = dataMap.copyOfRange(ofs + 3,ofs+mlen)
-                if (body.size + 3 < mlen)
+            if (fmtuType != null && mType == fmtuType) {
+                val fmt2 = formats[mType]
+                val body = dataMap.copyOfRange(ofs + 3,ofs+mLen)
+                if (body.size + 3 < mLen)
                     break
                 elements = listOf()//struct.unpack(fmt2!!.msgStruct, body))
                 val fType : Int = elements[1]
@@ -182,7 +175,7 @@ class DFReaderBinary(private val filename: String, zero_based_time: Boolean?, pr
                 }
             }
 
-            ofs += mlen
+            ofs += mLen
             progressCallback?.let { callback ->
                 val newPct = (100 * ofs) // self.data_len
 
@@ -227,41 +220,40 @@ class DFReaderBinary(private val filename: String, zero_based_time: Boolean?, pr
         return m!!.timestamp
     }
 
-    var indexes : ArrayList<Int> = arrayListOf()
     /**
      * skip fwd to next msg matching given type set
      */
     fun skipToType(type : String) {
 /*
-        if (type_nums == null) {
-            // always add some key msg types so we can track flightmode, params etc
+        if (typeNums == null) {
+            // always add some key msg types, so we can track flightmode, params etc.
             type = type.copy()
             type.update(HashSet<String>("MODE", "MSG", "PARM", "STAT"))
-            indexes = arrayListOf()
-            type_nums = arrayListOf()
+            indices = arrayListOf()
+            typeNums = arrayListOf()
             for (t in type) {
                 if (!name_to_id.contains(t)) {
                     continue
                 }
-                type_nums!!.add(name_to_id[t]!!)
-                indexes!!.add(0)
+                typeNums!!.add(name_to_id[t]!!)
+                indices!!.add(0)
             }
         }
         var smallest_index = -1
         var smallest_offset = data_len
-        for (i in 0..type_nums!!.size) {
-            val mtype = type_nums!![i]
-            if (indexes[i] >= counts[mtype]) {
+        for (i in 0..typeNums!!.size) {
+            val mType = typeNums!![i]
+            if (indices[i] >= counts[mType]) {
                 continue
             }
-            var ofs = offsets[mtype][indexes[i]]
+            var ofs = offsets[mType][indices[i]]
             if (ofs < smallest_offset) {
                 smallest_offset = ofs
                 smallest_index = i
             }
         }
         if (smallest_index >= 0) {
-            indexes[smallest_index] += 1
+            indices[smallest_index] += 1
             offset = smallest_offset
         }
         */
@@ -320,19 +312,19 @@ class DFReaderBinary(private val filename: String, zero_based_time: Boolean?, pr
 
         var fmt = formats[msgType]
         if (remaining < fmt!!.len - 3) {
-            // out of data - can often happen half way through a message
+            // out of data - can often happen halfway through a message
             if (verbose) {
                 println("out of data")
             }
             return null
         }
-        val body = dataMap.copyOfRange(offset,offset+fmt!!.len-3)
+        val body = dataMap.copyOfRange(offset,offset+ fmt.len-3)
         var elements : ArrayList<String>? = null
         try {
-            if(!unpackers!!.contains(msgType)) {
-                unpackers!![msgType] = ByteBuffer.wrap(byteArrayOf())//TODO struct.Struct(fmt.msgStruct).unpack
+            if(!unpackers.contains(msgType)) {
+                unpackers[msgType] = ByteBuffer.wrap(byteArrayOf())//TODO struct.Struct(fmt.msgStruct).unpack
             }
-            elements = arrayListOf<String>()// TODO arrayListOf(unpackers!![msgType](body))
+            elements = arrayListOf()// TODO arrayListOf(unpackers!![msgType](body))
         } catch (ex: Throwable) {
             print(ex)
             if (remaining < 528) {
@@ -340,7 +332,7 @@ class DFReaderBinary(private val filename: String, zero_based_time: Boolean?, pr
                 return null
             }
             // we should also cope with other corruption; logs
-            // transfered via DataFlash_MAVLink may have blocks of 0s
+            // transferred via DataFlash_MAVLink may have blocks of 0s
             // in them, for example
             println(String.format("Failed to parse %s/%s with len %u (remaining %u)" , fmt.name, fmt.msgStruct, body.size, remaining))
         }
@@ -359,7 +351,7 @@ class DFReaderBinary(private val filename: String, zero_based_time: Boolean?, pr
 
 
         if (name == "FMT") {
-            // add to formats
+            // add to hashmap "formats"
             // name, len, format, headings
             try {
                 val fType = elements[0].toInt()
