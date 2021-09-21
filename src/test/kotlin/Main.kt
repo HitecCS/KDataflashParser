@@ -1,12 +1,10 @@
-import java.io.File
-
 
 fun main() {
 
 //    val dataFlashFile = File("2021-06-02 13-08-24.log")
-    val dataFlashFile = File("log211.bin")
+    val filename = "log211.bin"
+//    val filename = "log211.log"
 
-    val filename = dataFlashFile.absolutePath.toString()
     if (filename.endsWith(".log")) {
         val dfReader = DFReaderText(filename, null) { pct : Int -> println("percent $pct") }
         println(dfReader.toString())
@@ -31,11 +29,8 @@ fun main() {
         val nonBaroAlts = dfReader.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
         println(fieldLists)
     } else {
-        DFReaderBinary(filename, null)  { pct : Int -> println("percent $pct") }
+        val dfReader = DFReaderBinary(filename, null)  { pct : Int -> println("percent $pct") }
+        println(dfReader)
     }
 
-//    while (true) {
-//        if ( dfParser.recv_msg() == null)
-//            break
-//    }
 }

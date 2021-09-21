@@ -1,3 +1,5 @@
+import java.nio.ByteBuffer
+
 /*
  * DFReader
  * Copyright (C) 2021 Hitec Commercial Solutions
@@ -337,7 +339,9 @@ abstract class DFReader {
     }
 
     fun uOrd(c : Byte) : Int {
-        return c.toInt()
+        val bArr = byteArrayOf(c)
+        val bb = ByteBuffer.wrap(bArr)
+        return bb.getInt(0)
     }
 
 }

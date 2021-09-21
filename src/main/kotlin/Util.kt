@@ -290,7 +290,7 @@ class Util {
         }
 
         fun nullTerm(str : String) : String {
-            return str + ""
+            return str.replace("\u0000","")
         }
     }
 }
