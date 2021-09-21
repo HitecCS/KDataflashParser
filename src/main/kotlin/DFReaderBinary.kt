@@ -332,8 +332,6 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
             if(!unpackers.contains(msgType)) {
                 unpackers[msgType] = { array : UByteArray -> Struct.unpack(fmt!!.format, array) }
             }
-            val v = unpackers[msgType]!!(body)
-//            print(v)
             elements = unpackers[msgType]!!(body)
         } catch (ex: Throwable) {
             println(ex)
