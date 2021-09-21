@@ -32,10 +32,11 @@ import Struct
 /**
  * parse a binary dataflash file
  */
+@OptIn(ExperimentalUnsignedTypes::class)
 class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
 
     // read the whole file into memory for simplicity
-    private var dataMap : IntArray //= File(filename).readBytes()
+    private var dataMap : UByteArray//= File(filename).readBytes() //: IntArray
     private var formats : HashMap<Int, DFFormat> = hashMapOf(Pair(
         0x80, DFFormat(0x80,
         "FMT",
@@ -43,14 +44,14 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         "BBnNZ",
         "Type,Length,Name,Format,Columns")
     ))
-    private val HEAD1 : Int = 0xA3 //2s -93
-    private val HEAD2 : Int = 0x95 //2s -107
+    private val HEAD1 : UByte = 0xA3.toUByte() //2s -93
+    private val HEAD2 : UByte = 0x95.toUByte() //2s -107
     private var dataLen : Int
     private var prevType : Any? //Placeholder type
     private var offset : Int = 0
     private var remaining : Int = 0
     private var typeNums : ArrayList<Int>? = null //Placeholder type
-    private val unpackers = hashMapOf<Int, (IntArray) -> Array<String>>()
+    private val unpackers = hashMapOf<Int, (UByteArray) -> Array<String>>()
 
     private var offsets =  arrayListOf<ArrayList<Int>>()
     private var counts = arrayListOf<Int>()
@@ -60,20 +61,14 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
     private var indices : ArrayList<Int> = arrayListOf()
 
     init {
-        val inputStream = File(filename).inputStream()
-        dataLen = File(filename).readBytes().size
-        dataMap = IntArray(dataLen)
+        val bytes = File(filename).readBytes()
+        dataLen = bytes.size // dataMap.size//
+        dataMap = bytes.toUByteArray()
 
-        var counter = 0
-        while (true) {
-            try {
-                dataMap[counter] = inputStream.read()
-            } catch (e: Throwable) {
-                break
-            }
-            counter ++
-        }
-        inputStream.close()
+//        bytes.forEachIndexed { index, byte ->
+//            dataMap[index] = byte.toUByte()
+//        }
+
         zeroTimeBase = zero_based_time ?: false
         prevType = null
         initClock()
@@ -103,7 +98,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         _count = 0
         nameToId = hashMapOf()
         idToName = hashMapOf()
-        for (i in 0..256) {
+        for (i in 0 until 256) {
             offsets.add(arrayListOf())
             counts.add(0)
         }
@@ -111,22 +106,22 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         var fmtuType : Int ?= null
         var ofs = 0
         var pct = 0
-        val lengths = arrayOf(256, -1 )
+        val lengths = IntArray(256) { -1 }
         var fmt : DFFormat?
-        var elements : List<Int>?
+        var elements : Array<String>?
 
         while ( ofs+3 < dataLen) {
-            val hdr : IntArray = dataMap.copyOfRange(ofs,ofs+3)
-            if (hdr[0].toInt() != HEAD1 || hdr[1].toInt() != HEAD2) {
+            val hdr = dataMap.copyOfRange(ofs,ofs+3)
+            if (hdr[0] != HEAD1 || hdr[1] != HEAD2) {
                 // avoid end of file garbage, 528 bytes has been use consistently throughout this implementation,
                 // but it needs to be at least 249 bytes which is the block based logging page size (256) less a 6 byte header and
                 // one byte of data. Block based logs are sized in pages which means they can have up to 249 bytes of trailing space.
                 if (dataLen - ofs >= 528 || dataLen < 528)
-                    println(String.format("bad header 0x%02x 0x%02x at %d" , hdr[0], hdr[1], ofs))//uOrd(hdr[0]), uOrd(hdr[1]), ofs))
+                    println(String.format("bad header %s %s at %d" , hdr[0].toString(), hdr[1].toString(), ofs))//uOrd(hdr[0]), uOrd(hdr[1]), ofs))
                 ofs += 1
                 continue
             }
-            val mType = hdr[2]//uOrd(hdr[2])
+            val mType = hdr[2].toInt()//uOrd(hdr[2])
             offsets[mType].add(ofs)
 
             if (lengths[mType] == -1) {
@@ -153,12 +148,12 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
                     break
                 }
                 fmt = formats[mType]
-                elements = listOf()//TODO struct.unpack(fmt!!.msgStruct, body))
-                val fType = elements[0]
+                elements = Struct.unpack(fmt!!.format, body)
+                val fType = elements[0].toInt()
                 val mFmt = DFFormat(
                     fType,
-                    nullTerm(elements[2].toString()), elements[1],
-                    nullTerm(elements[3].toString()), nullTerm(elements[4].toString()),
+                    nullTerm(elements[2]), elements[1].toInt(),
+                    nullTerm(elements[3]), nullTerm(elements[4].toString()),
                     formats[fType]
                 )
                 formats[fType] = mFmt
@@ -174,20 +169,21 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
                 val body = dataMap.copyOfRange(ofs + 3,ofs+mLen)
                 if (body.size + 3 < mLen)
                     break
-                elements = listOf()//struct.unpack(fmt2!!.msgStruct, body))
-                val fType : Int = elements[1]
+                elements = Struct.unpack(fmt2!!.format, body)
+                val fType : Int = elements[1].toInt()
                 if (fType in formats) {
                     val fmt3 = formats[fType]
-                    if (fmt2!!.colhash.contains("UnitIds"))
-                        fmt3?.setUnitIdsAndInstField(nullTerm(elements[fmt2.colhash["UnitIds"]!!].toString()))
+                    if (fmt2.colhash.contains("UnitIds"))
+                        fmt3?.setUnitIdsAndInstField(nullTerm(elements[fmt2.colhash["UnitIds"]!!]))
                     if (fmt2.colhash.contains("MultIds"))
-                        fmt3?.multIds = (nullTerm(elements[fmt2.colhash["MultIds"]!!].toString()))
+                        fmt3?.multIds = (nullTerm(elements[fmt2.colhash["MultIds"]!!]))
                 }
             }
 
             ofs += mLen
+            val newPct = ((100.0 * ofs) / dataLen).toInt()
             progressCallback?.let { callback ->
-                val newPct = (100 * ofs) // self.data_len
+//                val newPct = (100 * ofs) // self.data_len
 
                 if (newPct != pct) {
                     callback(newPct)
@@ -195,7 +191,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
                 }
             }
         }
-        for (i in 0..256) {
+        for (i in 0 until 256) {
             _count += counts[i]
         }
         offset = 0
@@ -208,7 +204,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
     private fun lastTimestamp() : Long {
         var highestOffset = 0
         var secondHighestOffset = 0
-        for (i in 0..256) {
+        for (i in 0 until 256) {
             if (counts[i] == -1)
                 continue
             if (offsets[i].size == 0)
@@ -288,7 +284,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
             val inputStream = File(filename).inputStream()
 
             val hdr = dataMap.copyOfRange(offset,offset+3)
-            if (hdr[0].toInt() == HEAD1 && hdr[1].toInt() == HEAD2) {
+            if (hdr[0] == HEAD1 && hdr[1] == HEAD2) {
                 // signature found
                 if (skipType != null) {
                     // emit message about skipped bytes
@@ -300,7 +296,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
                     skipType = null
                 }
                 // check we recognise this message type:
-                msgType = hdr[2]// uOrd(hdr[2])
+                msgType = hdr[2].toUByte().toInt()// uOrd(hdr[2])
                 if (msgType in formats) {
                     // recognised message found
                     prevType = msgType
@@ -312,7 +308,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
                 // message.
             }
             if (skipType == null) {
-                skipType = arrayOf(hdr[0], hdr[1], hdr[2])// arrayOf(uOrd(hdr[0]), uOrd(hdr[1]), uOrd(hdr[2]))
+                skipType = arrayOf(hdr[0].toInt(), hdr[1].toInt(), hdr[2].toInt())// arrayOf(uOrd(hdr[0]), uOrd(hdr[1]), uOrd(hdr[2]))
                 skipStart = offset
             }
             offset += 1
@@ -334,10 +330,10 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         var elements : Array<String>? = null
         try {
             if(!unpackers.contains(msgType)) {
-                unpackers[msgType] = { array : IntArray -> Struct.unpack(fmt!!.format, array) }
+                unpackers[msgType] = { array : UByteArray -> Struct.unpack(fmt!!.format, array) }
             }
             val v = unpackers[msgType]!!(body)
-            print(v)
+//            print(v)
             elements = unpackers[msgType]!!(body)
         } catch (ex: Throwable) {
             println(ex)
