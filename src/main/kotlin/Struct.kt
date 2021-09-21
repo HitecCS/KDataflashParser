@@ -1,142 +1,138 @@
-import java.lang.Math
 import kotlin.Throws
-import java.util.Arrays
 import java.nio.ByteOrder
 import java.math.BigDecimal
 import java.math.BigInteger
 import kotlin.Exception
-import kotlin.experimental.and
-import kotlin.math.abs
 import kotlin.math.pow
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class Struct {
-    private fun packRaw_u16b(`val`: Int): ByteArray {
-        var `val` = `val`
-        var bx = ByteArray(2)
-        `val` = `val` and 0xffff //truncate
-        if (`val` >= 0) {
-            bx[0] = (`val` and 0xff).toByte()
-            bx[1] = (`val` shr 8 and 0xff).toByte()
-        }
-        if (byteOrder == BigEndian) {
-            bx = reverseBytes(bx)
-        }
-        return bx
-    }
+//    private fun packRaw_u16b(`val`: Int): ByteArray {
+//        var `val` = `val`
+//        var bx = ByteArray(2)
+//        `val` = `val` and 0xffff //truncate
+//        if (`val` >= 0) {
+//            bx[0] = (`val` and 0xff).toByte()
+//            bx[1] = (`val` shr 8 and 0xff).toByte()
+//        }
+//        if (byteOrder == BigEndian) {
+//            bx = reverseBytes(bx)
+//        }
+//        return bx
+//    }
 
-    private fun packRaw_32b(`val`: Int): ByteArray {
-        var bx = ByteArray(4)
-        if (`val` >= 0) {
-            bx[0] = (`val` and 0xff).toByte()
-            bx[1] = (`val` shr 8 and 0xff).toByte()
-            bx[2] = (`val` shr 16 and 0xff).toByte()
-            bx[3] = (`val` shr 24 and 0xff).toByte()
-        } else {
-            var v2 = Math.abs(`val`).toLong()
-            v2 = (v2 xor 0x7fffffff) + 1 // invert bits and add 1
-            v2 = v2 or (1 shl 31) // add the 32nd bit as negative bit
-            bx[0] = (v2 and 0xff).toByte()
-            bx[1] = (v2 shr 8 and 0xff).toByte()
-            bx[2] = (v2 shr 16 and 0xff).toByte()
-            bx[3] = (v2 shr 24 and 0xff).toByte()
-        }
-        if (byteOrder == BigEndian) {
-            bx = reverseBytes(bx)
-        }
-        return bx
-    }
+//    private fun packRaw_32b(`val`: Int): ByteArray {
+//        var bx = ByteArray(4)
+//        if (`val` >= 0) {
+//            bx[0] = (`val` and 0xff).toByte()
+//            bx[1] = (`val` shr 8 and 0xff).toByte()
+//            bx[2] = (`val` shr 16 and 0xff).toByte()
+//            bx[3] = (`val` shr 24 and 0xff).toByte()
+//        } else {
+//            var v2 = Math.abs(`val`).toLong()
+//            v2 = (v2 xor 0x7fffffff) + 1 // invert bits and add 1
+//            v2 = v2 or (1 shl 31) // add the 32nd bit as negative bit
+//            bx[0] = (v2 and 0xff).toByte()
+//            bx[1] = (v2 shr 8 and 0xff).toByte()
+//            bx[2] = (v2 shr 16 and 0xff).toByte()
+//            bx[3] = (v2 shr 24 and 0xff).toByte()
+//        }
+//        if (byteOrder == BigEndian) {
+//            bx = reverseBytes(bx)
+//        }
+//        return bx
+//    }
 
-    private fun packRaw_u32b(`val`: Long): ByteArray {
-        var `val` = `val`
-        var bx = ByteArray(4)
-        `val` = `val` and -0x1
-        if (`val` >= 0) {
-            bx[0] = (`val` and 0xff).toByte()
-            bx[1] = (`val` shr 8 and 0xff).toByte()
-            bx[2] = (`val` shr 16 and 0xff).toByte()
-            bx[3] = (`val` shr 24 and 0xff).toByte()
-        }
-        if (byteOrder == BigEndian) {
-            bx = reverseBytes(bx)
-        }
-        return bx
-    }
+//    private fun packRaw_u32b(`val`: Long): ByteArray {
+//        var `val` = `val`
+//        var bx = ByteArray(4)
+//        `val` = `val` and -0x1
+//        if (`val` >= 0) {
+//            bx[0] = (`val` and 0xff).toByte()
+//            bx[1] = (`val` shr 8 and 0xff).toByte()
+//            bx[2] = (`val` shr 16 and 0xff).toByte()
+//            bx[3] = (`val` shr 24 and 0xff).toByte()
+//        }
+//        if (byteOrder == BigEndian) {
+//            bx = reverseBytes(bx)
+//        }
+//        return bx
+//    }
 
-    fun pack_single_data(fmt: Char, `val`: Long): ByteArray? {
-        val bx: ByteArray?
-        bx = when (fmt) {
-            'h' -> {
-                val value = (`val` and 0xffff).toShort()
-                packRaw_16b(value)
-            }
-            'H' -> packRaw_u16b(`val`.toInt())
-            'i' -> {
-                val ival = (`val` and -0x1).toInt()
-                packRaw_32b(ival)
-            }
-            'I' -> packRaw_u32b(`val`)
-            else -> {
-                //do nothing
-                println("Invalid format specifier")
-                null
-            }
-        }
-        return bx
-    }
+//    fun pack_single_data(fmt: Char, `val`: Long): ByteArray? {
+//        val bx: ByteArray?
+//        bx = when (fmt) {
+//            'h' -> {
+//                val value = (`val` and 0xffff).toShort()
+//                packRaw_16b(value)
+//            }
+//            'H' -> packRaw_u16b(`val`.toInt())
+//            'i' -> {
+//                val ival = (`val` and -0x1).toInt()
+//                packRaw_32b(ival)
+//            }
+//            'I' -> packRaw_u32b(`val`)
+//            else -> {
+//                //do nothing
+//                println("Invalid format specifier")
+//                null
+//            }
+//        }
+//        return bx
+//    }
 
-    @Throws(Exception::class)
-    fun pack(fmt: String, `val`: Long): ByteArray? {
-        if (fmt.length > 2) {
-            throw Exception("Single values may not have multiple format specifiers")
-        }
-        var bx: ByteArray? = ByteArray(1)
-        for (i in 0 until fmt.length) {
-            val c = fmt[i]
-            if (i == 0 && (c == '>' || c == '<' || c == '@' || c == '!')) {
-                if (c == '>') byteOrder = BigEndian else if (c == '<') byteOrder =
-                    LittleEndian else if (c == '!') byteOrder = BigEndian else if (c == '@') byteOrder = nativeByteOrder
-            } else if (c != '>' && c != '<' && c != '@' && c != '!') {
-                bx = pack_single_data(c, `val`)
-                if (bx == null) throw Exception("Invalid character specifier")
-            }
-        }
-        return bx
-    }
+//    @Throws(Exception::class)
+//    fun pack(fmt: String, `val`: Long): ByteArray? {
+//        if (fmt.length > 2) {
+//            throw Exception("Single values may not have multiple format specifiers")
+//        }
+//        var bx: ByteArray? = ByteArray(1)
+//        for (i in 0 until fmt.length) {
+//            val c = fmt[i]
+//            if (i == 0 && (c == '>' || c == '<' || c == '@' || c == '!')) {
+//                if (c == '>') byteOrder = BigEndian else if (c == '<') byteOrder =
+//                    LittleEndian else if (c == '!') byteOrder = BigEndian else if (c == '@') byteOrder = nativeByteOrder
+//            } else if (c != '>' && c != '<' && c != '@' && c != '!') {
+//                bx = pack_single_data(c, `val`)
+//                if (bx == null) throw Exception("Invalid character specifier")
+//            }
+//        }
+//        return bx
+//    }
 
-    @Throws(Exception::class)
-    fun pack(fmt: String, vals: LongArray): ByteArray {
-        val c0 = fmt[0]
-        var len: Int
-        len = if (c0 == '@' || c0 == '>' || c0 == '<' || c0 == '!') {
-            fmt.length - 1
-        } else {
-            fmt.length
-        }
-        if (len != vals.size) throw Exception("format length and values aren't equal")
-        len = lenEst(fmt)
-        var bxx = ByteArray(0)
-        var bx: ByteArray?
-        var temp: ByteArray
-        for (i in 0 until fmt.length) {
-            val c = fmt[i]
-            if (i == 0 && (c == '>' || c == '<' || c == '@' || c == '!')) {
-                if (c == '>') byteOrder = BigEndian else if (c == '<') byteOrder =
-                    LittleEndian else if (c == '!') byteOrder = BigEndian else if (c == '@') byteOrder = nativeByteOrder
-            } else if (c != '>' && c != '<' && c != '@' && c != '!') {
-                bx = if (c0 == '@' || c0 == '>' || c0 == '<' || c0 == '!') {
-                    pack(Character.toString(c), vals[i - 1])
-                } else {
-                    pack(Character.toString(c), vals[i])
-                }
-                temp = ByteArray(bxx.size + bx!!.size)
-                System.arraycopy(bxx, 0, temp, 0, bxx.size)
-                System.arraycopy(bx, 0, temp, bxx.size, bx.size)
-                bxx = Arrays.copyOf(temp, temp.size)
-            }
-        }
-        return bxx
-    }
+//    @Throws(Exception::class)
+//    fun pack(fmt: String, vals: LongArray): ByteArray {
+//        val c0 = fmt[0]
+//        var len: Int
+//        len = if (c0 == '@' || c0 == '>' || c0 == '<' || c0 == '!') {
+//            fmt.length - 1
+//        } else {
+//            fmt.length
+//        }
+//        if (len != vals.size) throw Exception("format length and values aren't equal")
+//        len = lenEst(fmt)
+//        var bxx = ByteArray(0)
+//        var bx: ByteArray?
+//        var temp: ByteArray
+//        for (i in 0 until fmt.length) {
+//            val c = fmt[i]
+//            if (i == 0 && (c == '>' || c == '<' || c == '@' || c == '!')) {
+//                if (c == '>') byteOrder = BigEndian else if (c == '<') byteOrder =
+//                    LittleEndian else if (c == '!') byteOrder = BigEndian else if (c == '@') byteOrder = nativeByteOrder
+//            } else if (c != '>' && c != '<' && c != '@' && c != '!') {
+//                bx = if (c0 == '@' || c0 == '>' || c0 == '<' || c0 == '!') {
+//                    pack(Character.toString(c), vals[i - 1])
+//                } else {
+//                    pack(Character.toString(c), vals[i])
+//                }
+//                temp = ByteArray(bxx.size + bx!!.size)
+//                System.arraycopy(bxx, 0, temp, 0, bxx.size)
+//                System.arraycopy(bx, 0, temp, bxx.size, bx.size)
+//                bxx = Arrays.copyOf(temp, temp.size)
+//            }
+//        }
+//        return bxx
+//    }
 
     companion object {
         private const val BigEndian: Short = 0
@@ -164,26 +160,26 @@ class Struct {
         }
 
 
-        private fun packRaw_16b(`val`: Short): ByteArray {
-            var bx = ByteArray(2)
-            if (`val` >= 0) {
-                bx[0] = (`val` and 0xff).toByte()
-                bx[1] = (`val`.toInt() shr 8 and 0xff).toByte()
-            } else {
-                var v2 = abs(`val`.toInt())
-                v2 = (v2 xor 0x7fff) + 1 // invert bits and add 1
-                v2 = v2 or (1 shl 15)
-                bx[0] = (v2 and 0xff).toByte()
-                bx[1] = (v2 shr 8 and 0xff).toByte()
-            }
-            if (byteOrder == BigEndian) {
-                bx = reverseBytes(bx)
-            }
-            return bx
-        }
+//        private fun packRaw_16b(`val`: Short): ByteArray {
+//            var bx = ByteArray(2)
+//            if (`val` >= 0) {
+//                bx[0] = (`val` and 0xff).toByte()
+//                bx[1] = (`val`.toInt() shr 8 and 0xff).toByte()
+//            } else {
+//                var v2 = abs(`val`.toInt())
+//                v2 = (v2 xor 0x7fff) + 1 // invert bits and add 1
+//                v2 = v2 or (1 shl 15)
+//                bx[0] = (v2 and 0xff).toByte()
+//                bx[1] = (v2 shr 8 and 0xff).toByte()
+//            }
+//            if (byteOrder == BigEndian) {
+//                bx = reverseBytes(bx)
+//            }
+//            return bx
+//        }
 
         private fun unpackRaw_16b(`val`: UByteArray): Long {
-            if (byteOrder == LittleEndian) reverseBytes(`val`.toByteArray())
+            if (byteOrder == LittleEndian) reverseBytes(`val`)
             var x: Long
             x = (`val`[0].toInt() shl 8 or (`val`[1].toInt() and 0xff)).toLong()
             if (x ushr 15 and 1 == 1L) {
@@ -194,13 +190,13 @@ class Struct {
         }
 
         private fun unpackRaw_u16b(`val`: UByteArray): Long {
-            if (byteOrder == LittleEndian) reverseBytes(`val`.toByteArray())
+            if (byteOrder == LittleEndian) reverseBytes(`val`)
             val x = (`val`[0].toUByte().toInt() and 0xff shl 8 or (`val`[1].toUByte().toInt() and 0xff)).toLong()
             return x
         }
 
         private fun unpackRaw_32b(byteArray: UByteArray): Long {
-            if (byteOrder == LittleEndian) reverseBytes(byteArray.toByteArray())
+            if (byteOrder == LittleEndian) reverseBytes(byteArray)
 
             val a = byteArray[0].toInt() and 0x00ff shl 24
             val b = byteArray[1].toInt() and 0x00ff shl 16
@@ -215,13 +211,13 @@ class Struct {
         }
 
         private fun unpackRaw_u32b(`val`: UByteArray): Long {
-            if (byteOrder == LittleEndian) reverseBytes(`val`.toByteArray())
-            val x = (`val`[0].toUByte().toInt() and 0xff).toLong() shl 24 or ((`val`[1].toUByte().toInt() and 0xff).toLong() shl 16) or ((`val`[2].toUByte().toInt() and 0xff).toLong() shl 8) or (`val`[3].toUByte().toInt() and 0xff).toLong()
+            if (byteOrder == LittleEndian) reverseBytes(`val`)
+            val x = (`val`[0].toInt() and 0xff).toLong() shl 24 or ((`val`[1].toInt() and 0xff).toLong() shl 16) or ((`val`[2].toInt() and 0xff).toLong() shl 8) or (`val`[3].toInt() and 0xff).toLong()
             return x
         }
 
         private fun unpackRaw_64b(byteArray: UByteArray): BigInteger {
-            if (byteOrder == LittleEndian) reverseBytes(byteArray.toByteArray())
+            if (byteOrder == LittleEndian) reverseBytes(byteArray)
 
             val a = byteArray[0].toInt() and 0x00ff shl 56
             val b = byteArray[1].toInt() and 0x00ff shl 48
@@ -316,9 +312,6 @@ class Struct {
                 }
 
                 'c' -> {
-//                    if (byteArray.size != 1) throw Exception("Byte length mismatch")
-//                    returnable = byteArray[0].and(0xFF.toByte()).toInt().toChar().toString()
-
                     if (byteArray.size != 2) throw Exception("Byte length mismatch")
                     returnable = (unpackRaw_16b(byteArray) * 0.01).toString()
 
@@ -361,26 +354,25 @@ class Struct {
             return returnable
         }
 
-        private fun lenEst(fmt: String): Int {
-            var counter = 0
-            var x = '\u0000'
-            for (i in 0 until fmt.length) {
-                x = fmt[i]
-                if (x == 'a' || x == 'Z') counter += 64 else if (x == 'N') counter += 16 else if (x == 'q' || x == 'Q' || x == 'd') counter += 8 else if (x == 'i' || x == 'I' || x == 'l' || x == 'L' || x == 'f' || x == 'n') counter += 4 else if (x == 'h' || x == 'H' || x == 'e' || x == 'E') counter += 2 else if (x == 'b' || x == 'B' || x == 'c' || x == 'C' || x == '?' || x == 'M') counter++
-            }
-            return counter
-        }
+//        private fun lenEst(fmt: String): Int {
+//            var counter = 0
+//            var x = '\u0000'
+//            for (i in 0 until fmt.length) {
+//                x = fmt[i]
+//                if (x == 'a' || x == 'Z') counter += 64 else if (x == 'N') counter += 16 else if (x == 'q' || x == 'Q' || x == 'd') counter += 8 else if (x == 'i' || x == 'I' || x == 'l' || x == 'L' || x == 'f' || x == 'n') counter += 4 else if (x == 'h' || x == 'H' || x == 'e' || x == 'E') counter += 2 else if (x == 'b' || x == 'B' || x == 'c' || x == 'C' || x == '?' || x == 'M') counter++
+//            }
+//            return counter
+//        }
 
+        /**
+         * Converts an Array of unsigned bytes from a dataflash log, to and array of strings
+         * @param fmt a strings array which should be included for the message type in the dataflash log prior to
+         * receiving a message of that type. See {@link DFFormat#}
+         */
         @Throws(Exception::class)
         fun unpack(fmt: String, bytesVals: UByteArray): Array<String> {
             val x = ByteOrder.nativeOrder()
             if (x == ByteOrder.LITTLE_ENDIAN) nativeByteOrder = LittleEndian else nativeByteOrder = BigEndian
-//            byteOrder = nativeByteOrder
-//            val bytesVals = ByteArray(intVals.size)
-//            for (i in intVals.indices) {
-//                bytesVals[i] = intVals[i].toByte()
-//            }
-//            val b = Byte.MAX_VALUE
 
             val returnableAL = arrayListOf<String>()
 
@@ -399,40 +391,6 @@ class Struct {
                 returnableAL.add(unpack_single_data(fmtChar, bytesVals.copyOfRange(pos, pos+len)))
                 pos += len
             }
-
-//            val len: Int
-//            len = lenEst(fmt)
-//            if (len != bytesVals.size) throw Exception("format length and values aren't equal")
-//            val c0 = fmt[0]
-//            val bxx: LongArray
-//            bxx = if (c0 == '@' || c0 == '<' || c0 == '>' || c0 == '!') {
-//                LongArray(fmt.length - 1)
-//            } else {
-//                LongArray(fmt.length)
-//            }
-//            var c: Char
-//            val bShort = ByteArray(2)
-//            val bLong = ByteArray(4)
-//            val bs = ByteArrayInputStream(bytesVals)
-//            var p = 0
-//            for (i in 0 until fmt.length) {
-//                c = fmt[i]
-//                if (i == 0 && (c == '>' || c == '<' || c == '@' || c == '!')) {
-//                    if (c == '>') byteOrder = BigEndian else if (c == '<') byteOrder =
-//                        LittleEndian else if (c == '!') byteOrder = BigEndian else byteOrder = nativeByteOrder
-//                } else {
-//                    if (c != '>' && c != '<' && c != '@' && c != '!') {
-//                        if (c == 'h' || c == 'H') {
-//                            val read = bs.read(bShort)
-//                            //                        bxx[p] = unpack_single_data(c, bShort);
-//                        } else if (c == 'i' || c == 'I') {
-//                            val read = bs.read(bLong)
-//                            //                        bxx[p] = unpack_single_data(c, bLong);
-//                        }
-//                        p++
-//                    }
-//                }
-//            }
 
             return returnableAL.toTypedArray()
         }
