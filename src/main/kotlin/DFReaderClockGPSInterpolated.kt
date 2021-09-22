@@ -29,13 +29,13 @@
  */
 class DFReaderClockGPSInterpolated : DFReaderClock() {
 
-    var msgRate = hashMapOf<String, Int>()
-    var counts = listOf<String>()
-    var countsSinceGPS = hashMapOf<String, Int>()
+    private var msgRate = hashMapOf<String, Int>()
+    private var counts = listOf<String>()
+    private var countsSinceGPS = hashMapOf<String, Int>()
 
 
     /**
-     * reset counters on rewind
+     * Reset counters on rewind
      */
     override fun rewindEvent() {
         counts = listOf()
@@ -62,7 +62,9 @@ class DFReaderClockGPSInterpolated : DFReaderClock() {
         }
     }*/
 
-    // adjust time base from GPS message
+    /**
+     * Adjust time base from GPS message
+     */
     fun gpsMessageArrived(m: DFMessage) {
         // msec - style GPS message?
         var gpsWeek : Double? = m.getAttr( "Week", null).first as Double?
@@ -91,12 +93,12 @@ class DFReaderClockGPSInterpolated : DFReaderClock() {
 
         val t = gpsTimeToTime(gpsWeek!!.toFloat(), gpsTimeMS!!.toFloat())
 
-        val deltat = t - timebase
-        if (deltat <= 0)
+        val deltaT = t - timebase
+        if (deltaT <= 0)
             return
 
         for (type in countsSinceGPS) {
-            val rate = countsSinceGPS[type.key]!! / deltat
+            val rate = countsSinceGPS[type.key]!! / deltaT
             if (rate > (msgRate[type.key] ?: 0)) {
                 msgRate[type.key] = rate.toInt()
             }

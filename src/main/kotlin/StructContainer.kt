@@ -27,4 +27,4 @@ import kotlin.reflect.KClass
  */
 
 
-data class StructContainer(val s: String, val mul: Double?, val type: KClass<out Any>) //TODO change name
+data class StructContainer(val cFormatCode: String, val mul: Double?, val type: KClass<out Any>) //TODO change name

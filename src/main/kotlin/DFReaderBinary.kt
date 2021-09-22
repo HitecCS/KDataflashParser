@@ -1,5 +1,8 @@
-import Util.Companion.null_term
+import Util.Companion.nullTerm
 import java.io.File
+import Struct
+import java.math.BigInteger
+
 
 /*
  * DFReader_binary
@@ -30,182 +33,252 @@ import java.io.File
 /**
  * parse a binary dataflash file
  */
-//class DFReaderBinary(filename: String, zero_based_time: Boolean?, progress_callback: ProgressCallback?) : DFReader() {
-    /*
-//    var filehandle : Any//Placeholder type
-    var dataMap : ByteArray
-    var formats : HashMap<Int, DFFormat>
-    var HEAD1 : Int
-    var HEAD2 : Int
-    var dataLen : Int
-    var prevType : Any? //Placeholder type
-    var offset : Int = 0
-    var remaining : Int = 0
-    var typeNums : ArrayList<Int>? = null //Placeholder type
-    var unpackers : HashMap<Int, ()>? = null
+@OptIn(ExperimentalUnsignedTypes::class)
+class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
+
+    // read the whole file into memory for simplicity
+    private var dataMap : UByteArray//= File(filename).readBytes() //: IntArray
+    private var formats : HashMap<Int, DFFormat> = hashMapOf(Pair(
+        0x80, DFFormat(0x80,
+        "FMT",
+        89,
+        "BBnNZ",
+        "Type,Length,Name,Format,Columns")
+    ))
+    private val HEAD1 : UByte = 0xA3.toUByte() //2s -93
+    private val HEAD2 : UByte = 0x95.toUByte() //2s -107
+    private var dataLen : Int
+    private var prevType : Any? //Placeholder type
+    private var offset : Int = 0
+    private var remaining : Int = 0
+    private var typeNums : ArrayList<Int>? = null //Placeholder type
+    private val unpackers = hashMapOf<Int, (UByteArray) -> Array<String>>()
+
+    private var offsets =  arrayListOf<ArrayList<Int>>()
+    private var counts = arrayListOf<Int>()
+    private var _count = 0
+    private var nameToId = hashMapOf<String, Int>() //Guess
+    private var idToName = hashMapOf<Int, String>() //Guess
+    private var indices : ArrayList<Int> = arrayListOf()
 
     init {
-//        DFReader.__init__(self)
-        // read the whole file into memory for simplicity
-//        filehandle = File(filename, 'r')
-//        this.filehandle.seek(0, 2)
-//        this.dataLen = this.filehandle.tell()
-//        this.filehandle.seek(0)
-        dataMap = File(filename).readBytes()
-        dataLen = dataMap.size
+        val bytes = File(filename).readBytes()
+        dataLen = bytes.size // dataMap.size//
+        dataMap = bytes.toUByteArray()
 
-        this.HEAD1 = 0xA3
-        this.HEAD2 = 0x95
-        this.unpackers = hashMapOf()
-//        if (sys.version_info.major < 3) {
-//            this.HEAD1 = chr(this.HEAD1)
-//            this.HEAD2 = chr(this.HEAD2)
+//        bytes.forEachIndexed { index, byte ->
+//            dataMap[index] = byte.toUByte()
 //        }
-        formats = hashMapOf(Pair(
-            0x80, DFFormat(0x80,
-            "FMT",
-            89,
-            "BBnNZ",
-            "Type,Length,Name,Format,Columns")
-        ))
-        this.zeroTimeBase = zero_based_time ?: false
-        this.prevType = null
-        this.initClock()
-        this.prevType = null
-        this.rewind()
-        this.initArrays(progress_callback)
+
+        zeroTimeBase = zero_based_time ?: false
+        prevType = null
+        initClock()
+        prevType = null
+        rewind()
+        initArrays()
     }
+
     /**
-     * rewind to start of log
+     * Rewind to start of log
      */
     override fun rewind() {
         super.rewind()
-        this.offset = 0
-        this.remaining = this.dataLen
-        this.typeNums = null
-        this.timestamp = 0
+        offset = 0
+        remaining = dataLen
+        typeNums = null
+        timestamp = 0
     }
 
+    override fun getAllMessages(): ArrayList<DFMessage> {
+        val returnable = arrayListOf<DFMessage>()
+        rewind()
+        var pct = 0
+        var nullCount = 0
+        while (offset < dataLen) {
+            parseNext()?.let {
+                returnable.add(it)
+            } ?: run {
+                nullCount++
+            }
+            val newPct = (offset * 100)/ dataLen
+            if(pct != newPct) {
+                pct = newPct
+                println(newPct)
+            }
+        }
+        rewind()
+        return returnable
+    }
 
-    var offsets =  arrayListOf<ArrayList<Int>>()
-    var counts = arrayListOf<Int>()
-    var _count = 0
-    var name_to_id = hashMapOf<String, Int>() //Guess
-    var id_to_name = hashMapOf<Int, String>() //Guess
+    override fun getFieldLists(fields: Collection<String>): HashMap<String, ArrayList<Pair<Long, Any>>> {
+        rewind()
+        var pct = 0
+
+        val returnable = hashMapOf<String, ArrayList<Pair<Long,Any>>>()
+        fields.forEach {
+            returnable[it] = arrayListOf()
+        }
+
+        while (offset < dataLen) {//dataMap.length
+
+            parseNext()?.let { m ->
+                val intersection = m.fieldnames intersect fields
+                intersection.forEach {
+                    returnable[it]?.add(Pair(m.timestamp, m.getAttr(it).first!!))
+                }
+            }
+            val newPct = (offset * 100)/ dataLen
+            if(pct != newPct) {
+                pct = newPct
+                println(newPct)
+            }
+        }
+        rewind()
+        return returnable
+    }
+
+    override fun getFieldListConditional(
+        field: String,
+        shouldInclude: (DFMessage) -> Boolean
+    ): ArrayList<Pair<Long, Any>> {
+        rewind()
+        var pct = 0
+
+        val returnable = ArrayList<Pair<Long,Any>>()
+
+        while (offset < dataLen - 3) {
+
+            parseNext()?.let { m ->
+                if(m.fieldnames.contains(field) && shouldInclude(m)) {
+                    returnable.add(Pair(m.timestamp, m.getAttr(field).first!!))
+                }
+            }
+            val newPct = (offset * 100)/ dataLen
+            if(pct != newPct) {
+                pct = newPct
+                println(newPct)
+            }
+        }
+        rewind()
+        return returnable
+    }
+
     /**
-     * initialise arrays for fast recv_match()
+     * Initialise arrays for fast recv_match()
      */
-    private fun initArrays(progressCallback: ProgressCallback?) {
+    private fun initArrays() {
         offsets = arrayListOf()
         counts = arrayListOf()
         _count = 0
-        name_to_id = hashMapOf()
-        id_to_name = hashMapOf()
-        for (i in 0..256) {
-            offsets.add(arrayListOf<Int>())
+        nameToId = hashMapOf()
+        idToName = hashMapOf()
+        for (i in 0 until 256) {
+            offsets.add(arrayListOf())
             counts.add(0)
         }
-        var fmtType = 0x80
+        val fmtType = 0x80
         var fmtuType : Int ?= null
         var ofs = 0
         var pct = 0
-        var HEAD1 = this.HEAD1
-        var HEAD2 = this.HEAD2
-        var lengths = arrayOf(256, -1 )
+        val lengths = IntArray(256) { -1 }
         var fmt : DFFormat?
-        var elements : List<Int>?
+        var elements : Array<String>?
 
         while ( ofs+3 < dataLen) {
-            val hdr : ByteArray = dataMap.copyOfRange(ofs,ofs+3)
-            if (hdr[0].toInt() != HEAD1 || hdr[1].toInt() != HEAD2) {
-                // avoid end of file garbage, 528 bytes has been use consistently throughout this implementation
+            val hdr = dataMap.copyOfRange(ofs,ofs+3)
+            if (hdr[0] != HEAD1 || hdr[1] != HEAD2) {
+                // avoid end of file garbage, 528 bytes has been use consistently throughout this implementation,
                 // but it needs to be at least 249 bytes which is the block based logging page size (256) less a 6 byte header and
                 // one byte of data. Block based logs are sized in pages which means they can have up to 249 bytes of trailing space.
                 if (dataLen - ofs >= 528 || dataLen < 528)
-                    println(String.format("bad header 0x%02x 0x%02x at %d" , (u_ord(hdr[0]), u_ord(hdr[1]), ofs)))
+                    println(String.format("bad header %s %s at %d" , hdr[0].toString(), hdr[1].toString(), ofs))//uOrd(hdr[0]), uOrd(hdr[1]), ofs))
                 ofs += 1
                 continue
             }
-            val mtype = u_ord(hdr[2])
-            offsets[mtype].add(ofs)
+            val mType = hdr[2].toInt()//uOrd(hdr[2])
+            offsets[mType].add(ofs)
 
-            if (lengths[mtype] == -1) {
-                if (!formats.contains(mtype)) {
+            if (lengths[mType] == -1) {
+                if (!formats.contains(mType)) {
                     if (dataLen - ofs >= 528 || dataLen < 528) {
-                        println(String.format("unknown msg type 0x%02x (%u) at %d" , mtype, mtype, ofs))
+                        println(String.format("unknown msg type 0x%02x (%s) at %d" , mType, mType, ofs))
                     }
                     break
                 }
                 offset = ofs
                 parseNext()
-                fmt = formats[mtype]
-                lengths[mtype] = fmt!!.len
-            } else if ( formats[mtype]!!.instanceField != null) {
+                fmt = formats[mType]
+                lengths[mType] = fmt!!.len
+            } else if ( formats[mType]!!.instanceField != null) {
                 parseNext()
             }
 
-            counts[mtype] += 1
-            var mlen = lengths[mtype]
+            counts[mType] += 1
+            val mLen = lengths[mType]
 
-            if (mtype == fmtType) {
-                var body = dataMap.copyOfRange(ofs+3,ofs+mlen)
-                if (body.size + 3 < mlen) {
+            if (mType == fmtType) {
+                val body = dataMap.copyOfRange(ofs+3,ofs+mLen)
+                if (body.size + 3 < mLen) {
                     break
                 }
-                fmt = formats[mtype]
-                elements = listOf(struct.unpack(fmt.msgStruct, body))
-                val ftype = elements[0]
-                var mfmt = DFFormat(
-                    ftype,
-                    null_term(elements[2]), elements[1],
-                    null_term(elements[3]), null_term(elements[4]),
-                    formats.get(ftype)
+                fmt = formats[mType]
+                elements = Struct.unpack(fmt!!.format, body)
+                val fType = elements[0].toInt()
+                val mFmt = DFFormat(
+                    fType,
+                    nullTerm(elements[2]), elements[1].toInt(),
+                    nullTerm(elements[3]), nullTerm(elements[4].toString()),
+                    formats[fType]
                 )
-                formats[ftype] = mfmt
-                name_to_id[mfmt.name] = mfmt.type
-                id_to_name[mfmt.type] = mfmt.name
-                if (mfmt.name == "FMTU") {
-                    fmtuType = mfmt.type
+                formats[fType] = mFmt
+                nameToId[mFmt.name] = mFmt.type
+                idToName[mFmt.type] = mFmt.name
+                if (mFmt.name == "FMTU") {
+                    fmtuType = mFmt.type
                 }
             }
 
-            if (fmtuType != null && mtype == fmtuType) {
-                val fmt = formats[mtype]
-                val body = dataMap.copyOfRange(ofs + 3,ofs+mlen)
-                if (body.size + 3 < mlen)
+            if (fmtuType != null && mType == fmtuType) {
+                val fmt2 = formats[mType]
+                val body = dataMap.copyOfRange(ofs + 3,ofs+mLen)
+                if (body.size + 3 < mLen)
                     break
-                elements = listOf(struct.unpack(fmt.msgStruct, body))
-                val ftype : Int = elements[1]
-                if (ftype in formats) {
-                    val fmt2 = formats[ftype]
-                    if (fmt!!.colhash.contains("UnitIds"))
-                        fmt2?.setUnitIdsAndInstField(null_term(elements[fmt.colhash["UnitIds"]]))
-                    if (fmt.colhash.contains("MultIds"))
-                        fmt2?.multIds = (null_term(elements[fmt.colhash["MultIds"]]))
+                elements = Struct.unpack(fmt2!!.format, body)
+                val fType : Int = elements[1].toInt()
+                if (fType in formats) {
+                    val fmt3 = formats[fType]
+                    if (fmt2.colhash.contains("UnitIds"))
+                        fmt3?.setUnitIdsAndInstField(nullTerm(elements[fmt2.colhash["UnitIds"]!!]))
+                    if (fmt2.colhash.contains("MultIds"))
+                        fmt3?.multIds = (nullTerm(elements[fmt2.colhash["MultIds"]!!]))
                 }
             }
 
-            ofs += mlen
-            if (progressCallback != null) {
-                val new_pct = (100 * ofs) // self.data_len
-                if (new_pct != pct) {
-                    progressCallback.update(new_pct)
-                    pct = new_pct
+            ofs += mLen
+            val newPct = ((100.0 * ofs) / dataLen).toInt()
+            progressCallback?.let { callback ->
+//                val newPct = (100 * ofs) // self.data_len
+
+                if (newPct != pct) {
+                    callback(newPct)
+                    pct = newPct
                 }
             }
         }
-        for (i in 0..256) {
+        for (i in 0 until 256) {
             _count += counts[i]
         }
         offset = 0
     }
+
     /**
-     * get the last timestamp in the log
+     * Get the last timestamp in the log
+     *
      */
-    fun lastTimestamp() : Long {
+    private fun lastTimestamp() : Long {
         var highestOffset = 0
         var secondHighestOffset = 0
-        for (i in 0..256) {
+        for (i in 0 until 256) {
             if (counts[i] == -1)
                 continue
             if (offsets[i].size == 0)
@@ -227,41 +300,40 @@ import java.io.File
         return m!!.timestamp
     }
 
-    var indexes : ArrayList<Int> = arrayListOf()
     /**
      * skip fwd to next msg matching given type set
      */
     fun skipToType(type : String) {
 /*
-        if (type_nums == null) {
-            // always add some key msg types so we can track flightmode, params etc
+        if (typeNums == null) {
+            // always add some key msg types, so we can track flightmode, params etc.
             type = type.copy()
             type.update(HashSet<String>("MODE", "MSG", "PARM", "STAT"))
-            indexes = arrayListOf()
-            type_nums = arrayListOf()
+            indices = arrayListOf()
+            typeNums = arrayListOf()
             for (t in type) {
                 if (!name_to_id.contains(t)) {
                     continue
                 }
-                type_nums!!.add(name_to_id[t]!!)
-                indexes!!.add(0)
+                typeNums!!.add(name_to_id[t]!!)
+                indices!!.add(0)
             }
         }
         var smallest_index = -1
         var smallest_offset = data_len
-        for (i in 0..type_nums!!.size) {
-            val mtype = type_nums!![i]
-            if (indexes[i] >= counts[mtype]) {
+        for (i in 0..typeNums!!.size) {
+            val mType = typeNums!![i]
+            if (indices[i] >= counts[mType]) {
                 continue
             }
-            var ofs = offsets[mtype][indexes[i]]
+            var ofs = offsets[mType][indices[i]]
             if (ofs < smallest_offset) {
                 smallest_offset = ofs
                 smallest_index = i
             }
         }
         if (smallest_index >= 0) {
-            indexes[smallest_index] += 1
+            indices[smallest_index] += 1
             offset = smallest_offset
         }
         */
@@ -283,23 +355,25 @@ import java.io.File
                 return null
             }
 
-            var hdr = dataMap.copyOfRange(offset,offset+3)
-            if (hdr[0].toInt() == HEAD1 && hdr[1].toInt() == HEAD2) {
+            val inputStream = File(filename).inputStream()
+
+            val hdr = dataMap.copyOfRange(offset,offset+3)
+            if (hdr[0] == HEAD1 && hdr[1] == HEAD2) {
                 // signature found
                 if (skipType != null) {
                     // emit message about skipped bytes
                     if (remaining >= 528) {
                         // APM logs often contain garbage at end
-                        var skip_bytes = offset - skipStart
-                        println(String.format("Skipped %u bad bytes in log at offset %u, type=%s (prev=%s)", skip_bytes, skipStart, skipType, prevType))
+                        val skipBytes = offset - skipStart
+                        println(String.format("Skipped %s bad bytes in log at offset %s, type=%s (prev=%s)", skipBytes, skipStart, skipType, prevType))
                     }
                     skipType = null
                 }
                 // check we recognise this message type:
-                var msg_type = u_ord(hdr[2])
-                if (msg_type in formats) {
+                msgType = hdr[2].toUByte().toInt()// uOrd(hdr[2])
+                if (msgType in formats) {
                     // recognised message found
-                    prevType = msg_type
+                    prevType = msgType
                     break
                 }
                 // message was not recognised; fall through so these
@@ -308,7 +382,7 @@ import java.io.File
                 // message.
             }
             if (skipType == null) {
-                skipType = arrayOf(u_ord(hdr[0]), u_ord(hdr[1]), u_ord(hdr[2]))
+                skipType = arrayOf(hdr[0].toInt(), hdr[1].toInt(), hdr[2].toInt())// arrayOf(uOrd(hdr[0]), uOrd(hdr[1]), uOrd(hdr[2]))
                 skipStart = offset
             }
             offset += 1
@@ -319,39 +393,39 @@ import java.io.File
         remaining = dataLen - offset
 
         var fmt = formats[msgType]
-        if (remaining < fmt.len - 3) {
-            // out of data - can often happen half way through a message
+        if (remaining < fmt!!.len - 3) {
+            // out of data - can often happen halfway through a message
             if (verbose) {
                 println("out of data")
             }
             return null
         }
-        var body = dataMap.copyOfRange(offset,offset+fmt!!.len-3)
-        var elements : ArrayList<String>? = null
+        val body = dataMap.copyOfRange(offset, offset+ fmt.len-3)
+        var elements : Array<String>? = null
         try {
-            if(!unpackers!!.contains(msgType)) {
-                unpackers[msgType] = struct.Struct(fmt.msgStruct).unpack
+            if(!unpackers.contains(msgType)) {
+                unpackers[msgType] = { array : UByteArray -> Struct.unpack(fmt!!.format, array) }
             }
-            elements = arrayListOf(unpackers[msgType](body))
+            elements = unpackers[msgType]!!(body)
         } catch (ex: Throwable) {
-            print(ex)
+            println(ex)
             if (remaining < 528) {
                 // we can have garbage at the end of an APM2 log
                 return null
             }
             // we should also cope with other corruption; logs
-            // transfered via DataFlash_MAVLink may have blocks of 0s
+            // transferred via DataFlash_MAVLink may have blocks of 0s
             // in them, for example
-            println(String.format("Failed to parse %s/%s with len %u (remaining %u)" , fmt!!.name, fmt.msgStruct, body.size, remaining))
+            println(String.format("Failed to parse %s/%s with len %s (remaining %s)" , fmt.name, fmt.msgStruct, body.size, remaining))
         }
         if (elements == null) {
             return parseNext()
         }
-        val name = fmt!!.name
+        val name = fmt.name
         // transform elements which can't be done at unpack time:
         for (aIndex in fmt.aIndexes) {
             try {
-                elements[aIndex] = array.array('h', elements[aIndex])
+                elements[aIndex] = ""// TODO elements[aIndex].split(",").toByteArray()
             } catch (e: Throwable) {
                 println(String.format("Failed to transform array: %s" , e.message))
             }
@@ -359,33 +433,33 @@ import java.io.File
 
 
         if (name == "FMT") {
-            // add to formats
+            // add to hashmap "formats"
             // name, len, format, headings
             try {
-                val ftype = elements[0].toInt()
-                val mfmt = DFFormat(
-                    ftype,
-                    null_term(elements[2]),
+                val fType = elements[0].toInt()
+                val mFmt = DFFormat(
+                    fType,
+                    nullTerm(elements[2]),
                     elements[1].toInt(),
-                    null_term(elements[3]),
-                    null_term(elements[4]),
-                    formats.get(ftype)
+                    nullTerm(elements[3]),
+                    nullTerm(elements[4]),
+                    formats[fType]
                 )
-                formats[ftype] = mfmt
+                formats[fType] = mFmt
             } catch (e: Throwable) {
                 return parseNext()
             }
         }
 
-        offset += fmt.flen - 3
+        offset += fmt.len - 3
         remaining = dataLen - offset
-        val m = DFMessage(fmt, elements, true)
+        val m = DFMessage(fmt, ArrayList(elements.toList()), true, this)
 
         if (m.fmt.name == "FMTU") {
             // add to units information
-            val fmtType = (elements[0] as String).toInt()
-            val unitIds = elements[1] as String
-            val multIds = elements[2] as String
+            val fmtType = elements[0].toInt()
+            val unitIds = elements[1]
+            val multIds = elements[2]
             if (fmtType in formats) {
                 fmt = formats[fmtType]
                 fmt?.apply {
@@ -402,7 +476,10 @@ import java.io.File
         }
         percent = (100.0 * (offset / dataLen)).toFloat()
 
+        if(endTime < m.timestamp) {
+            endTime = m.timestamp
+        }
+
         return m
     }
-     */
-//}
+}
