@@ -113,9 +113,8 @@ class DFFormat(
             colhash[columnsArr[i]] = i
         }
 
-        val aIndexes = arrayListOf<Int>()
-        for (i in 0 until msgFmts.size) {
-            if (msgFmts[i] == 'a') {
+        msgFmts.forEachIndexed { i, msgFmt ->
+            if (msgFmt == 'a') {
                 aIndexes.add(i)
             }
         }
@@ -141,23 +140,4 @@ class DFFormat(
     override fun toString(): String {
         return String.format("DFFormat(%s,%s,%s,[%s])", type, name, format, columns)
     }
-//
-//    fun getUnpacker() : (ByteArray) -> ArrayList<String> {
-//        return { input : ByteArray ->
-//            val returnable = arrayListOf<String>()
-//
-//            var index = 0
-//            msgTypes.forEach {
-//                when(msgStruct) {
-//                    Int::class -> input.toInt()
-//                    Double::class -> v.toDouble()
-//                    Boolean::class -> v.toString().lowercase().toBoolean()
-//                    String::class -> v
-//                    else -> v
-//                }
-//            }
-//
-//            returnable
-//        }
-//    }
 }

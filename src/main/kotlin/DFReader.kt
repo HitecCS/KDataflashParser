@@ -31,14 +31,16 @@ import java.nio.ByteBuffer
  */
 abstract class DFReader {
     private var clock : DFReaderClock? = null
+
+    private var params = HashMap<String, Float>()
+    private var flightModes : Array<Array<Any?>>? = null
+    private var flightMode : Any? = null
+
+    var messages = hashMapOf<String, Any>() //can be DFReader or DFMessage
+    var zeroTimeBase = false
     var timestamp : Int = 0
     var mavType = MAV_TYPE.MAV_TYPE_FIXED_WING
     var verbose = false
-    private var params = HashMap<String, Float>()
-    private var flightModes : Array<Array<Any?>>? = null
-    var messages = hashMapOf<String, Any>() //can be DFReader or DFMessage
-    var zeroTimeBase = false
-    private var flightMode : Any? = null
     var percent : Float = 0f
 
     val startTime: Long
@@ -192,14 +194,9 @@ abstract class DFReader {
         return
     }
 
-    /**
-     * set time for a message
-     */
-    private fun setTime(m: DFMessage) {
-        // really just left here for profiling
-        m.timestamp = timestamp.toLong()
-        if (m.fieldnames.isNotEmpty() && clock != null)
-            clock!!.setMessageTimestamp(m)
+
+    fun getStartAndEndTimes() : Pair<Long, Long> {
+        return Pair(startTime , endTime)
     }
 
     fun recvMsg(): DFMessage? {
@@ -308,7 +305,7 @@ abstract class DFReader {
     /**
      * return an array of tuples for all flightModes in log. Tuple is (modeString, t0, t1)
      */
-    fun flightModeList() {
+    private fun flightModeList() {
 //        var tStamp: Long?= null
 //        val fMode : Any? = null //unknown type
 //        if (flightModes == null) {
@@ -338,7 +335,17 @@ abstract class DFReader {
 //        return flightModes
     }
 
-    fun uOrd(c : Byte) : Int {
+    /**
+     * set time for a message
+     */
+    private fun setTime(m: DFMessage) {
+        // really just left here for profiling
+        m.timestamp = timestamp.toLong()
+        if (m.fieldnames.isNotEmpty() && clock != null)
+            clock!!.setMessageTimestamp(m)
+    }
+
+    private fun uOrd(c : Byte) : Int {
         val bArr = byteArrayOf(c)
         val bb = ByteBuffer.wrap(bArr)
         return bb.getInt(0)
