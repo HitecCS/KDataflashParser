@@ -135,7 +135,7 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
      *
      * @return ArrayList<DFMessage> containing a DFMessage for each entry in the DataFlash log
      */
-    fun getAllMessages(): ArrayList<DFMessage> {
+    override fun getAllMessages(): ArrayList<DFMessage> {
         val returnable = arrayListOf<DFMessage>()
         rewind()
         var lineCount = BigInteger.ZERO
@@ -177,7 +177,7 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
      * @return HashMap containing an ArrayList<Pair<Long, Any>> for each given field. Where the Pair's first element is
      * the timestamp, and the second element is the value of the field at that instance
      */
-    fun getFieldLists(fields : Collection<String>) : HashMap<String, ArrayList<Pair<Long,Any>>> {
+    override fun getFieldLists(fields : Collection<String>) : HashMap<String, ArrayList<Pair<Long,Any>>> {
         rewind()
         var lineCount = BigInteger.ZERO
         var pct = 0
@@ -232,7 +232,7 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
      * returned ArrayList
      * @return ArrayList<Pair<Long, Any>> where the Pair's first element is the timestamp, and the second element is the value of the field at that instance
      */
-    fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>> {
+    override fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>> {
         rewind()
         var lineCount = BigInteger.ZERO
         var pct = 0

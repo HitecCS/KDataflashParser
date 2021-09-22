@@ -170,10 +170,13 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
             kClass = fmt.msgTypes[i]
         }
         if (fmt.msgTypes[i] == String::class) {
-//            v = Util.null_term(v)
+            v = Util.nullTerm(v as String)
         }
         if (fmt.msgMults[i] != null && applyMultiplier) {
-            v = (v as Double) * fmt.msgMults[i]!!
+            if (v is Double)
+                v *= fmt.msgMults[i]!!
+            else if (v is String)
+                v = v.toDouble() * fmt.msgMults[i]!!
         }
         return Pair(v, kClass)
     }

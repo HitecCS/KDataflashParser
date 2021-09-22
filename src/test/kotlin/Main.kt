@@ -2,10 +2,10 @@
 fun main() {
 
 //    val dataFlashFile = File("2021-06-02 13-08-24.log")
-    val filename = "log211.bin"
-//    val filename = "log211.log"
+    val filename2 = "log211.bin"
+    val filename = "log211.log"
 
-    if (filename.endsWith(".log")) {
+//    if (filename.endsWith(".log")) {
         val dfReader = DFReaderText(filename, null) { pct : Int -> println("percent $pct") }
         println(dfReader.toString())
         val a = dfReader.getAllMessages()
@@ -28,9 +28,11 @@ fun main() {
         val baroAlts = dfReader.getFieldListConditional("Alt") { m -> m.getType() == "BARO" }
         val nonBaroAlts = dfReader.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
         println(fieldLists)
-    } else {
-        val dfReader = DFReaderBinary(filename, null)  { pct : Int -> println("percent $pct") }
+//    } else {
+        val dfReader2 = DFReaderBinary(filename2, null)  { pct : Int -> println("percent $pct") }
+        val baroAlts2 = dfReader2.getFieldListConditional("Alt") { m -> m.getType() == "BARO" }
+        val nonBaroAlts2 = dfReader.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
         println(dfReader)
-    }
+//    }
 
 }

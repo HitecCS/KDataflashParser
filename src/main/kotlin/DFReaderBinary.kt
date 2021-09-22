@@ -1,6 +1,7 @@
 import Util.Companion.nullTerm
 import java.io.File
 import Struct
+import java.math.BigInteger
 
 
 /*
@@ -88,6 +89,79 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         timestamp = 0
     }
 
+    override fun getAllMessages(): ArrayList<DFMessage> {
+        val returnable = arrayListOf<DFMessage>()
+        rewind()
+        var pct = 0
+        var nullCount = 0
+        while (offset < dataLen) {
+            parseNext()?.let {
+                returnable.add(it)
+            } ?: run {
+                nullCount++
+            }
+            val newPct = (offset * 100)/ dataLen
+            if(pct != newPct) {
+                pct = newPct
+                println(newPct)
+            }
+        }
+        rewind()
+        return returnable
+    }
+
+    override fun getFieldLists(fields: Collection<String>): HashMap<String, ArrayList<Pair<Long, Any>>> {
+        rewind()
+        var pct = 0
+
+        val returnable = hashMapOf<String, ArrayList<Pair<Long,Any>>>()
+        fields.forEach {
+            returnable[it] = arrayListOf()
+        }
+
+        while (offset < dataLen) {//dataMap.length
+
+            parseNext()?.let { m ->
+                val intersection = m.fieldnames intersect fields
+                intersection.forEach {
+                    returnable[it]?.add(Pair(m.timestamp, m.getAttr(it).first!!))
+                }
+            }
+            val newPct = (offset * 100)/ dataLen
+            if(pct != newPct) {
+                pct = newPct
+                println(newPct)
+            }
+        }
+        rewind()
+        return returnable
+    }
+
+    override fun getFieldListConditional(
+        field: String,
+        shouldInclude: (DFMessage) -> Boolean
+    ): ArrayList<Pair<Long, Any>> {
+        rewind()
+        var pct = 0
+
+        val returnable = ArrayList<Pair<Long,Any>>()
+
+        while (offset < dataLen - 3) {
+
+            parseNext()?.let { m ->
+                if(m.fieldnames.contains(field) && shouldInclude(m)) {
+                    returnable.add(Pair(m.timestamp, m.getAttr(field).first!!))
+                }
+            }
+            val newPct = (offset * 100)/ dataLen
+            if(pct != newPct) {
+                pct = newPct
+                println(newPct)
+            }
+        }
+        rewind()
+        return returnable
+    }
 
     /**
      * Initialise arrays for fast recv_match()
@@ -127,7 +201,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
             if (lengths[mType] == -1) {
                 if (!formats.contains(mType)) {
                     if (dataLen - ofs >= 528 || dataLen < 528) {
-                        println(String.format("unknown msg type 0x%02x (%u) at %d" , mType, mType, ofs))
+                        println(String.format("unknown msg type 0x%02x (%s) at %d" , mType, mType, ofs))
                     }
                     break
                 }
@@ -291,7 +365,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
                     if (remaining >= 528) {
                         // APM logs often contain garbage at end
                         val skipBytes = offset - skipStart
-                        println(String.format("Skipped %u bad bytes in log at offset %u, type=%s (prev=%s)", skipBytes, skipStart, skipType, prevType))
+                        println(String.format("Skipped %s bad bytes in log at offset %s, type=%s (prev=%s)", skipBytes, skipStart, skipType, prevType))
                     }
                     skipType = null
                 }
@@ -342,7 +416,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
             // we should also cope with other corruption; logs
             // transferred via DataFlash_MAVLink may have blocks of 0s
             // in them, for example
-            println(String.format("Failed to parse %s/%s with len %u (remaining %u)" , fmt.name, fmt.msgStruct, body.size, remaining))
+            println(String.format("Failed to parse %s/%s with len %s (remaining %s)" , fmt.name, fmt.msgStruct, body.size, remaining))
         }
         if (elements == null) {
             return parseNext()
