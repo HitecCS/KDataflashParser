@@ -1,7 +1,5 @@
-import Util.Companion.nullTerm
+import Util.nullTerm
 import java.io.File
-import Struct
-import java.math.BigInteger
 
 
 /*
@@ -163,6 +161,149 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         return returnable
     }
 
+
+    /**
+     * read one message, returning it as an object
+     */
+    override fun parseNext() : DFMessage? {
+
+        // skip over bad messages; after this loop has run msg_type
+        // indicates the message which starts at self.offset (including
+        // signature bytes and msg_type itself)
+        var skipType : Array<Int>? = null
+        var skipStart = 0
+        var msgType: Int
+        while (true) {
+            if (dataLen - offset < 3) {
+                return null
+            }
+
+            val hdr = dataMap.copyOfRange(offset,offset+3)
+            if (hdr[0] == HEAD1 && hdr[1] == HEAD2) {
+                // signature found
+                if (skipType != null) {
+                    // emit message about skipped bytes
+                    if (remaining >= 528) {
+                        // APM logs often contain garbage at end
+                        val skipBytes = offset - skipStart
+                        println(String.format("Skipped %s bad bytes in log at offset %s, type=%s (prev=%s)", skipBytes, skipStart, skipType, prevType))
+                    }
+                    skipType = null
+                }
+                // check we recognise this message type:
+                msgType = hdr[2].toInt()
+                if (msgType in formats) {
+                    // recognised message found
+                    prevType = msgType
+                    break
+                }
+                // message was not recognised; fall through so these
+                // bytes are considered "skipped".  The signature bytes
+                // are easily recognisable in the "Skipped bytes"
+                // message.
+            }
+            if (skipType == null) {
+                skipType = arrayOf(hdr[0].toInt(), hdr[1].toInt(), hdr[2].toInt())// arrayOf(uOrd(hdr[0]), uOrd(hdr[1]), uOrd(hdr[2]))
+                skipStart = offset
+            }
+            offset += 1
+            remaining -= 1
+        }
+
+        offset += 3
+        remaining = dataLen - offset
+
+        var fmt = formats[msgType]
+        if (remaining < fmt!!.len - 3) {
+            // out of data - can often happen halfway through a message
+            if (verbose) {
+                println("out of data")
+            }
+            return null
+        }
+        val body = dataMap.copyOfRange(offset, offset+ fmt.len-3)
+        var elements : Array<String>? = null
+        try {
+            if(!unpackers.contains(msgType)) {
+                unpackers[msgType] = { array : UByteArray -> Struct.unpack(fmt!!.format, array) }
+            }
+            elements = unpackers[msgType]!!(body)
+        } catch (ex: Throwable) {
+            println(ex)
+            if (remaining < 528) {
+                // we can have garbage at the end of an APM2 log
+                return null
+            }
+            // we should also cope with other corruption; logs
+            // transferred via DataFlash_MAVLink may have blocks of 0s
+            // in them, for example
+            println(String.format("Failed to parse %s/%s with len %s (remaining %s)" , fmt.name, fmt.msgStruct, body.size, remaining))
+        }
+        if (elements == null) {
+            return parseNext()
+        }
+        val name = fmt.name
+        // transform elements which can't be done at unpack time:
+        for (aIndex in fmt.aIndexes) {
+            try {
+                elements[aIndex] = ""//elements[aIndex].split(",")
+            } catch (e: Throwable) {
+                println(String.format("Failed to transform array: %s" , e.message))
+            }
+        }
+
+
+        if (name == "FMT") {
+            // add to hashmap "formats"
+            // name, len, format, headings
+            try {
+                val fType = elements[0].toInt()
+                val mFmt = DFFormat(
+                    fType,
+                    nullTerm(elements[2]),
+                    elements[1].toInt(),
+                    nullTerm(elements[3]),
+                    nullTerm(elements[4]),
+                    formats[fType]
+                )
+                formats[fType] = mFmt
+            } catch (e: Throwable) {
+                return parseNext()
+            }
+        }
+
+        offset += fmt.len - 3
+        remaining = dataLen - offset
+        val m = DFMessage(fmt, ArrayList(elements.toList()), true, this)
+
+        if (m.fmt.name == "FMTU") {
+            // add to units information
+            val fmtType = elements[0].toInt()
+            val unitIds = elements[1]
+            val multIds = elements[2]
+            if (fmtType in formats) {
+                fmt = formats[fmtType]
+                fmt?.apply {
+                    setUnitIdsAndInstField(unitIds)
+                    this.multIds = multIds
+                }
+            }
+        }
+
+        try {
+            addMsg(m)
+        } catch (e: Throwable) {
+            println(String.format("bad msg at offset %s, %s", offset, e.message))
+        }
+        percent = (100.0 * (offset / dataLen)).toFloat()
+
+        if(endTime < m.timestamp) {
+            endTime = m.timestamp
+        }
+
+        return m
+    }
+
     /**
      * Initialise arrays for fast recv_match()
      */
@@ -303,7 +444,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
     /**
      * skip fwd to next msg matching given type set
      */
-    fun skipToType(type : String) {
+    private fun skipToType(type : String) {
 /*
         if (typeNums == null) {
             // always add some key msg types, so we can track flightmode, params etc.
@@ -339,147 +480,4 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         */
     }
 
-    /**
-     * read one message, returning it as an object
-     */
-    override fun parseNext() : DFMessage? {
-
-        // skip over bad messages; after this loop has run msg_type
-        // indicates the message which starts at self.offset (including
-        // signature bytes and msg_type itself)
-        var skipType : Array<Int>? = null
-        var skipStart = 0
-        var msgType = 0// unknown type
-        while (true) {
-            if (dataLen - offset < 3) {
-                return null
-            }
-
-            val inputStream = File(filename).inputStream()
-
-            val hdr = dataMap.copyOfRange(offset,offset+3)
-            if (hdr[0] == HEAD1 && hdr[1] == HEAD2) {
-                // signature found
-                if (skipType != null) {
-                    // emit message about skipped bytes
-                    if (remaining >= 528) {
-                        // APM logs often contain garbage at end
-                        val skipBytes = offset - skipStart
-                        println(String.format("Skipped %s bad bytes in log at offset %s, type=%s (prev=%s)", skipBytes, skipStart, skipType, prevType))
-                    }
-                    skipType = null
-                }
-                // check we recognise this message type:
-                msgType = hdr[2].toUByte().toInt()// uOrd(hdr[2])
-                if (msgType in formats) {
-                    // recognised message found
-                    prevType = msgType
-                    break
-                }
-                // message was not recognised; fall through so these
-                // bytes are considered "skipped".  The signature bytes
-                // are easily recognisable in the "Skipped bytes"
-                // message.
-            }
-            if (skipType == null) {
-                skipType = arrayOf(hdr[0].toInt(), hdr[1].toInt(), hdr[2].toInt())// arrayOf(uOrd(hdr[0]), uOrd(hdr[1]), uOrd(hdr[2]))
-                skipStart = offset
-            }
-            offset += 1
-            remaining -= 1
-        }
-
-        offset += 3
-        remaining = dataLen - offset
-
-        var fmt = formats[msgType]
-        if (remaining < fmt!!.len - 3) {
-            // out of data - can often happen halfway through a message
-            if (verbose) {
-                println("out of data")
-            }
-            return null
-        }
-        val body = dataMap.copyOfRange(offset, offset+ fmt.len-3)
-        var elements : Array<String>? = null
-        try {
-            if(!unpackers.contains(msgType)) {
-                unpackers[msgType] = { array : UByteArray -> Struct.unpack(fmt!!.format, array) }
-            }
-            elements = unpackers[msgType]!!(body)
-        } catch (ex: Throwable) {
-            println(ex)
-            if (remaining < 528) {
-                // we can have garbage at the end of an APM2 log
-                return null
-            }
-            // we should also cope with other corruption; logs
-            // transferred via DataFlash_MAVLink may have blocks of 0s
-            // in them, for example
-            println(String.format("Failed to parse %s/%s with len %s (remaining %s)" , fmt.name, fmt.msgStruct, body.size, remaining))
-        }
-        if (elements == null) {
-            return parseNext()
-        }
-        val name = fmt.name
-        // transform elements which can't be done at unpack time:
-        for (aIndex in fmt.aIndexes) {
-            try {
-                elements[aIndex] = ""// TODO elements[aIndex].split(",").toByteArray()
-            } catch (e: Throwable) {
-                println(String.format("Failed to transform array: %s" , e.message))
-            }
-        }
-
-
-        if (name == "FMT") {
-            // add to hashmap "formats"
-            // name, len, format, headings
-            try {
-                val fType = elements[0].toInt()
-                val mFmt = DFFormat(
-                    fType,
-                    nullTerm(elements[2]),
-                    elements[1].toInt(),
-                    nullTerm(elements[3]),
-                    nullTerm(elements[4]),
-                    formats[fType]
-                )
-                formats[fType] = mFmt
-            } catch (e: Throwable) {
-                return parseNext()
-            }
-        }
-
-        offset += fmt.len - 3
-        remaining = dataLen - offset
-        val m = DFMessage(fmt, ArrayList(elements.toList()), true, this)
-
-        if (m.fmt.name == "FMTU") {
-            // add to units information
-            val fmtType = elements[0].toInt()
-            val unitIds = elements[1]
-            val multIds = elements[2]
-            if (fmtType in formats) {
-                fmt = formats[fmtType]
-                fmt?.apply {
-                    setUnitIdsAndInstField(unitIds)
-                    this.multIds = multIds
-                }
-            }
-        }
-
-        try {
-            addMsg(m)
-        } catch (e: Throwable) {
-            println(String.format("bad msg at offset %s, %s", offset, e.message))
-        }
-        percent = (100.0 * (offset / dataLen)).toFloat()
-
-        if(endTime < m.timestamp) {
-            endTime = m.timestamp
-        }
-
-        return m
-    }
 }

@@ -35,59 +35,73 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
     var timestamp : Long = 0L
     var Message: String? = null
         get() {
-            return getStringFieldByName("Message")
+            if(field == null) field = getStringFieldByName("Message")
+            return field
         }
     var Mode : String? = null
         get() {
-            return getStringFieldByName("Mode")
+            if(field == null) field = getStringFieldByName("Mode")
+            return field
         }
     var ModeNum : Int? = null
         get() {
-            return getIntFieldByName("ModeNum")
+            if(field == null) field = getIntFieldByName("ModeNum")
+            return field
         }
     var MainState: Int? = null
         get() {
-            return getIntFieldByName("MainState")
+            if(field == null) field = getIntFieldByName("MainState")
+            return field
         }
     var Name: String? = null
         get() {
-            return getStringFieldByName("Name")
+            if(field == null) field = getStringFieldByName("Name")
+            return field
         }
     var Value: Float? = null//TODO
         get() {
-            return getFloatFieldByName("Value")
+        if(field == null) field = getFloatFieldByName("Value")
+        return field
         }
     var TimeUS : Int? = null
         get() {
-           return getIntFieldByName("TimeUS")
+            if(field == null) field = getIntFieldByName("TimeUS")
+            return field
         }
     var TimeMS : Float? = null
         get() {
-            return getFloatFieldByName("TimeMS")
+            if(field == null) field = getFloatFieldByName("TimeMS")
+            return field
         }
     var GWk : Float? = null
         get() {
-            return getFloatFieldByName("GWk")
+            if(field == null) field = getFloatFieldByName("GWk")
+            return field
         }
     var GMS : Float? = null
         get() {
-            return getFloatFieldByName("GMS")
+            if(field == null) field = getFloatFieldByName("GMS")
+            return field
         }
     var T : Int? = null
         get() {
-            return getIntFieldByName("T")
+            if(field == null) field =getIntFieldByName("T")
+            return field
         }
     var Week : Float? = null
         get() {
-            return getFloatFieldByName("Week")
+            if(field == null) field = getFloatFieldByName("Week")
+            return field
         }
     var GPSTime : Float? = null
         get() {
-            return getFloatFieldByName("GPSTime")
+            if(field == null) field =getFloatFieldByName("GPSTime")
+            return field
         }
     var StartTime : Long? = null
         get() {
-            return getLongFieldByName("StartTime")
+            if(field == null) field = getLongFieldByName("StartTime")
+            return field
         }
 
     fun getIntFieldByName(name: String) : Int? {
@@ -139,22 +153,17 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
      * override field getter
      */
     fun getAttr(field: String, default : Any?) : Pair<Any?, KClass<out Any>> {
-        var i = 0
+        val i: Int
         try {
             i = fmt.colhash[field]!!
         } catch (e: Exception) {
             throw java.lang.Exception(field)
         }
 
-        var v = default
-        var kClass : KClass<out Any>? = null
-//        if (_elements[i] is ByteArray) {
-//            v = _elements[i].toString("utf-8")
-//            kClass = ByteArray::class
-//        } else {
-            v = elements[i]
-            kClass = Array<Float>::class
-//        }
+        var v: Any?
+        var kClass: KClass<out Any>?
+        v = elements[i]
+        kClass = Array<Float>::class
 
         if (fmt.format[i] == 'a') {
             //Squeltch
