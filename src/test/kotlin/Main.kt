@@ -6,7 +6,7 @@ fun main() {
     val filename = "log211.log"
 
 //    if (filename.endsWith(".log")) {
-        val dfReader = DFReaderText(filename, null) { pct : Int -> println("percent $pct") }
+        val dfReader = DataFlashParser(filename) { pct : Int -> println("percent $pct") }
         println(dfReader.toString())
         val a = dfReader.getAllMessages()
         val fieldLists = dfReader.getFieldLists(hashSetOf("Roll",
@@ -29,7 +29,7 @@ fun main() {
         val nonBaroAlts = dfReader.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
         println(fieldLists)
 //    } else {
-        val dfReader2 = DFReaderBinary(filename2, null)  { pct : Int -> println("percent $pct") }
+        val dfReader2 = DataFlashParser(filename2)  { pct : Int -> println("percent $pct") }
         val baroAlts2 = dfReader2.getFieldListConditional("Alt") { m -> m.getType() == "BARO" }
         val nonBaroAlts2 = dfReader.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
         println(dfReader)
