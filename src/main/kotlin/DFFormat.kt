@@ -91,7 +91,7 @@ class DFFormat(
             try {
                 msgFmts.add(c)
                 val structContainer = formatToStruct[c]
-                msgStruct += structContainer!!.s
+                msgStruct += structContainer!!.cFormatCode
                 msgMults.add(structContainer.mul)
                 if (c == 'a')
                     msgTypes.add(Array<out Any>::class)
@@ -141,4 +141,23 @@ class DFFormat(
     override fun toString(): String {
         return String.format("DFFormat(%s,%s,%s,[%s])", type, name, format, columns)
     }
+//
+//    fun getUnpacker() : (ByteArray) -> ArrayList<String> {
+//        return { input : ByteArray ->
+//            val returnable = arrayListOf<String>()
+//
+//            var index = 0
+//            msgTypes.forEach {
+//                when(msgStruct) {
+//                    Int::class -> input.toInt()
+//                    Double::class -> v.toDouble()
+//                    Boolean::class -> v.toString().lowercase().toBoolean()
+//                    String::class -> v
+//                    else -> v
+//                }
+//            }
+//
+//            returnable
+//        }
+//    }
 }
