@@ -36,7 +36,7 @@ import kotlin.collections.HashSet
 /**
  * Parses a text DataFlash log
  */
-class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
+class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
 
     private var dataLen: Int
     private var pythonLength: Int
@@ -454,11 +454,6 @@ class DFReaderText(private val filename: String, zeroBasedTime: Boolean?, privat
         }
 
         return m
-    }
-
-
-    fun getStartAndEndTimes() : Pair<Long, Long> {
-        return Pair(startTime , endTime)
     }
 
     /**

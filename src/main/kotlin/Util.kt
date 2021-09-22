@@ -27,8 +27,7 @@ import java.io.FileReader
  * Partly based on SDLog2Parser by Anton Babushkin
  */
 
-class Util {
-    companion object {
+object Util {
         private val modeMappingAPM = hashMapOf(
             Pair(0, "MANUAL"),
             Pair(1, "CIRCLE"),
@@ -293,4 +292,3 @@ class Util {
             return str.replace("\u0000","")
         }
     }
-}

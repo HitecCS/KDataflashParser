@@ -1,5 +1,8 @@
 import java.io.File
 
+/**
+ *  Optional wrapper class which abstracts the DFReader from the user
+ */
 class DataFlashParser(val file: File, progressCallback: ((Int) -> Unit)?) {
     val dfReader : DFReader = if(Util.isDFTextLog(file.absolutePath))
         DFReaderText(file.absolutePath, null, progressCallback)
@@ -18,6 +21,10 @@ class DataFlashParser(val file: File, progressCallback: ((Int) -> Unit)?) {
 
     fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>> {
         return dfReader.getFieldListConditional(field, shouldInclude)
+    }
+
+    fun getStartAndEndTimes() : Pair<Long, Long> {
+        return dfReader.getStartAndEndTimes()
     }
 
 }
