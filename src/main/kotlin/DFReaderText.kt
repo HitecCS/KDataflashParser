@@ -91,7 +91,7 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         // find the first valid line
         offset = 0
         bufferedReader.close()
-        bufferedReader = BufferedReader( FileReader(filename))
+        bufferedReader = BufferedReader(FileReader(filename))
 
 //        offset = findNextTag("FMT, ", null, null)
 //        if (offset == -1) {
