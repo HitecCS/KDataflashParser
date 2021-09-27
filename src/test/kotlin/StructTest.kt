@@ -67,12 +67,12 @@ class StructTest {
         val result = Struct.unpack(fmt, body)
         assert(result[0] == "128")
         assert(result[1] == "89")
-        assert(result[2].replace("\u0000", "") == "FMT")
+        assert(Util.nullTerm(result[2]) == "FMT")
 
-        val clean3 = result[3].replace("\u0000", "")
+        val clean3 = Util.nullTerm(result[3])
         assert(clean3 == "BBnNZ")
 
-        val clean4 = result[4].replace("\u0000", "")
+        val clean4 = Util.nullTerm(result[4])
         assert(clean4 == "Type,Length,Name,Format,Columns")
 
 
@@ -85,10 +85,10 @@ class StructTest {
         assert(result2[1] == "76")
         assert(result2[2] == "UNIT")
 
-        val clean3_2 = result2[3].replace("\u0000", "")
+        val clean3_2 = Util.nullTerm(result2[3])
         assert(clean3_2 == "QbZ")
 
-        val clean4_2 = result2[4].replace("\u0000", "")
+        val clean4_2 = Util.nullTerm(result2[4])
         assert(clean4_2 == "TimeUS,Id,Label")
     }
 }

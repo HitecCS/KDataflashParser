@@ -92,7 +92,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         rewind()
         var pct = 0
         var nullCount = 0
-        while (offset < dataLen) {
+        while (dataLen - offset > 3) {
             parseNext()?.let {
                 returnable.add(it)
             } ?: run {
@@ -117,7 +117,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
             returnable[it] = arrayListOf()
         }
 
-        while (offset < dataLen) {//dataMap.length
+        while (dataLen - offset < 3) {//dataMap.length
 
             parseNext()?.let { m ->
                 val intersection = m.fieldnames intersect fields
@@ -144,7 +144,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
 
         val returnable = ArrayList<Pair<Long,Any>>()
 
-        while (offset < dataLen - 3) {
+        while (dataLen - offset < 3) {
 
             parseNext()?.let { m ->
                 if(m.fieldnames.contains(field) && shouldInclude(m)) {
