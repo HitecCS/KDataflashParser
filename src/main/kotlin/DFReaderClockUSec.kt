@@ -1,5 +1,5 @@
 /*
- * DFReaderClock_usec
+ * DFReaderClockUSec
  * Copyright (C) 2021 Hitec Commercial Solutions
  * Author, Stephen Woerner
  *

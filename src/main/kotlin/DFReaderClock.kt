@@ -23,6 +23,8 @@
  * Released under GNU GPL version 3 or later
  * Partly based on SDLog2Parser by Anton Babushkin
  */
+
+
 abstract class DFReaderClock {
 
     var timebase : Double = 0.0

@@ -3,7 +3,7 @@ import java.io.File
 
 
 /*
- * DFReader_binary
+ * DFReaderBinary
  * Copyright (C) 2021 Hitec Commercial Solutions
  * Author, Stephen Woerner
  *
@@ -29,7 +29,7 @@ import java.io.File
  */
 
 /**
- * parse a binary dataflash file
+ * Parse a binary dataflash file
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
@@ -61,12 +61,8 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
 
     init {
         val bytes = File(filename).readBytes()
-        dataLen = bytes.size // dataMap.size//
+        dataLen = bytes.size
         dataMap = bytes.toUByteArray()
-
-//        bytes.forEachIndexed { index, byte ->
-//            dataMap[index] = byte.toUByte()
-//        }
 
         zeroTimeBase = zero_based_time ?: false
         prevType = null
@@ -162,9 +158,6 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
     }
 
 
-    /**
-     * read one message, returning it as an object
-     */
     override fun parseNext() : DFMessage? {
 
         // skip over bad messages; after this loop has run msg_type
@@ -433,10 +426,10 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
             }
         }
         offset = highestOffset
-        var m = recvMsg()
+        var m = parseNext()
         if (m == null) {
             offset = secondHighestOffset
-            m = recvMsg()
+            m = parseNext()
         }
         return m!!.timestamp
     }
