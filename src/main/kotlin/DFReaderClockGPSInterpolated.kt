@@ -1,5 +1,5 @@
 /*
- * DFReaderClock_gps_interpolated
+ * DFReaderClockGPSInterpolated
  * Copyright (C) 2021 Hitec Commercial Solutions
  * Author, Stephen Woerner
  *
@@ -25,7 +25,7 @@
  */
 
 /**
- * DFReaderClock_gps_interpolated - for when the only real references in a message are GPS timestamps
+ * DFReaderClockGPSInterpolated - for when the only real references in a message are GPS timestamps
  */
 class DFReaderClockGPSInterpolated : DFReaderClock() {
 

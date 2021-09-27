@@ -48,14 +48,70 @@ abstract class DFReader {
 
     var endTime: Long = 0L
 
+
+    /**
+     * Read one message, returning it as an object
+     */
     abstract fun parseNext() : DFMessage?
 
+    /**
+     * Warning, long-running, memory intensive operation
+     *
+     * This function returns, every entry from a DataFlash log, fully parsed as a DFMessage in an ArrayList. The list
+     * returned will be ordered in the same order as the DataFlash log (presumably, time-sorted order).
+     *
+     * @return ArrayList<DFMessage> containing a DFMessage for each entry in the DataFlash log
+     */
     abstract fun getAllMessages(): ArrayList<DFMessage>
 
+    /**
+     * Warning, possibly long-running operation.
+     *
+     * This function returns, for each field specified, an ArrayList containing every instance value for a given field
+     * paired with the timestamp of that values occurrence. In each Pair, the timestamp will be the first element and
+     * the value is the second. The list returned will be ordered in same order as the DataFlash log (presumably,
+     * time-sorted order). The ArrayLists are returned in a HashMap, in which each key is the name of the field, and the
+     * value is the ArrayList.
+     *
+     * In the case that a given field does not occur in the log, and empty ArrayList will be returned.
+     *
+     * Field names are case-sensitive.
+     *
+     * @param fields a collection of field names to search for the values of within the DataFlash log
+     * @return HashMap containing an ArrayList<Pair<Long, Any>> for each given field. Where the Pair's first element is
+     * the timestamp, and the second element is the value of the field at that instance
+     */
     abstract fun getFieldLists(fields : Collection<String>) : HashMap<String, ArrayList<Pair<Long,Any>>>
 
+    /**
+     * Warning, possibly long-running operation.
+     *
+     * This function returns an ArrayList containing every instance value for a given field paired with the timestamp
+     * of that instance values occurrence, where the given lambda function also returns true when passed the DFMessage
+     * (the DataFlash log entry) the value was found in . In each Pair, the timestamp will be the first element and the
+     * value is the second. The list returned will be ordered in same order as the DataFlash log (presumably,
+     * time-sorted order).
+     *
+     * Field names are case-sensitive.
+     *
+     * This function is useful in the case where one only wants the instance of a field under certain conditions.
+     *
+     * Ex: val dfReader = DFReaderText("dataflash.log", null, null)
+     * val altsFromBaroMessages = dfReader.getFieldListConditional("Alt", { message -> message.getType() == "BARO" })
+     *
+     * The above example would return the list of timestamp/instance-value pair from the DataFlash log where the
+     * DFMessage's type was "BARO"
+     *
+     * @param field a field name to search for the values of within the DataFlash log
+     * @param shouldInclude a lambda function, which must return true to add a timestamp/instance-value pair to the
+     * returned ArrayList
+     * @return ArrayList<Pair<Long, Any>> where the Pair's first element is the timestamp, and the second element is the value of the field at that instance
+     */
     abstract fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>>
 
+    /**
+     * Rewind to start of log
+     */
     open fun rewind() {
         // Be careful not to replace self.messages with a new hash;
         // some people have taken a reference to self.messages, and we
@@ -72,11 +128,11 @@ abstract class DFReader {
         clock?.rewindEvent()
     }
 
-    private fun initClockPx4 (px4_msg_time: DFMessage, px4_msg_gps : DFMessage) : Boolean {
+    private fun initClockPx4 (px4MsgTime: DFMessage, px4MsgGps : DFMessage) : Boolean {
         clock = DFReaderClockPx4()
         if ( !zeroTimeBase ) {
-            (clock as DFReaderClockPx4).setPx4Timebase(px4_msg_time)
-            (clock as DFReaderClockPx4).findTimeBase(px4_msg_gps)
+            (clock as DFReaderClockPx4).setPx4Timebase(px4MsgTime)
+            (clock as DFReaderClockPx4).findTimeBase(px4MsgGps)
         }
         return true
     }
@@ -98,7 +154,7 @@ abstract class DFReader {
      * work out time basis for the log
      */
     fun initClock() {
-        println("init_clock")
+        println("initClock")
         rewind()
 
         // speculatively create a gps clock in case we don't find anything better
@@ -115,7 +171,7 @@ abstract class DFReader {
         var count = 0
         while (true) {
             count++
-            val m = recvMsg() ?: break
+            val m = parseNext() ?: break
 
             val type = m.getType()
 
@@ -197,10 +253,6 @@ abstract class DFReader {
 
     fun getStartAndEndTimes() : Pair<Long, Long> {
         return Pair(startTime , endTime)
-    }
-
-    fun recvMsg(): DFMessage? {
-        return parseNext()
     }
 
     /**

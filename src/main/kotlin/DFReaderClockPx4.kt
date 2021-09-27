@@ -1,5 +1,5 @@
 /*
- * DFReaderClock_px4
+ * DFReaderClockPx4
  * Copyright (C) 2021 Hitec Commercial Solutions
  * Author, Stephen Woerner
  *
@@ -25,7 +25,7 @@
  */
 
 /**
- * DFReaderClock_px4 - a format where a starting time is explicitly given in a message
+ * DFReaderClockPx4 - a format where a starting time is explicitly given in a message
  */
 class DFReaderClockPx4 : DFReaderClock() {
 
