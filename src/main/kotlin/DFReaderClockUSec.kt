@@ -66,15 +66,18 @@ class DFReaderClockUSec : DFReaderClock() {
     }
 
     override fun setMessageTimestamp(m: DFMessage) {
-        if("TimeUS" == m.fieldnames[0]) {
-//             only format messages don 't have a TimeUS in them...
-            m.timestamp = (timebase + m.TimeUS!! * 0.000001).toLong()
-        } else if(shouldUseMSecField0(m)) {
-//             ... in theory. I expect there to be some logs which are not
-//             "pure":
-            m.timestamp = (timebase + m.TimeMS!! * 0.001).toLong()
-        } else {
-            m.timestamp = timestamp.toLong()
+        m.timestamp = when {
+            "TimeUS" == m.fieldnames[0] -> {
+//              only format messages don 't have a TimeUS in them...
+                (timebase + m.TimeUS!! * 0.000001).toLong()
+            }
+            shouldUseMSecField0(m) -> {
+//              ... in theory. I expect there to be some logs which are not "pure":
+                (timebase + m.TimeMS!! * 0.001).toLong()
+            }
+            else -> {
+                timestamp.toLong()
+            }
         }
         timestamp = m.timestamp.toDouble()
     }
