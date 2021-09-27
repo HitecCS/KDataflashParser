@@ -1,4 +1,5 @@
 import java.io.BufferedReader
+import java.io.File
 import java.io.FileReader
 
 /*
@@ -200,18 +201,15 @@ object Util {
 //    return r + "_XXX"
 //}
 
+        private val HEAD1 : UByte = 0xA3.toUByte() //2s -93
+        private val HEAD2 : UByte = 0x95.toUByte()
         /**
          * return true if a file appears to be a valid text log
          * from: DFReader.py
          */
         fun isDFTextLog(filename: String) : Boolean {
-            val br = BufferedReader(FileReader(filename))
-            return try {
-                br.readLine().contains("FMT")
-            } catch (e : Throwable) {
-                println(e.message)
-                false
-            }
+            val bytes = File(filename).readBytes()
+            return !(HEAD1 == bytes[0].toUByte() && HEAD2 == bytes[1].toUByte())
         }
 
         /**

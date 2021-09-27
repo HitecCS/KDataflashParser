@@ -23,14 +23,12 @@
  * Released under GNU GPL version 3 or later
  * Partly based on SDLog2Parser by Anton Babushkin
  */
+
+
 abstract class DFReaderClock {
 
     var timebase : Double = 0.0
-    var timestamp : Double
-    init {
-        timebase = 0.0
-        timestamp = 0.0
-    }
+    var timestamp : Double = 0.0
 
     /**
      * convert GPS week and TOW to a time in seconds since 1970

@@ -67,15 +67,22 @@ class StructTest {
         val result = Struct.unpack(fmt, body)
         assert(result[0] == "128")
         assert(result[1] == "89")
-        assert(result[2].replace("\u0000", "") == "FMT")
+        assert(Util.nullTerm(result[2]) == "FMT")
 
-        val clean3 = result[3].replace("\u0000", "")
+        val clean3 = Util.nullTerm(result[3])
         assert(clean3 == "BBnNZ")
 
-        val clean4 = result[4].replace("\u0000", "")
+        val clean4 = Util.nullTerm(result[4])
         assert(clean4 == "Type,Length,Name,Format,Columns")
 
 
+        val fmt3 = "QBIHBcLLeffffB"
+        val bodyIntArray3 = intArrayOf(-95, 114, -20, 7, 0, 0, 0, 0, 3, -24, 49, -82, 10, 90, 8, 9, 121, 0, 94, 62, -28, 21, 107, 14, -12, 75, 93, 60, 0, 0, 23, -39, -114, 62, -74, 18, -124, 66, 111, 18, 3, 61, 0, 0, 0, 0, 1)
+        val body3 = UByteArray(bodyIntArray3.size) { i -> bodyIntArray3[i].toUByte() }
+        val result3 = Struct.unpack(fmt3, body3)
+        assert(result3[0] == "132936353")
+        assert(result3[2] == "179188200")
+        assert(result3[3] == "2138")
 
         val fmt2 = "BBnNZ"
         val bodyIntArray2 = intArrayOf(-37, 76, 85, 78, 73, 84, 81, 98, 90, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 84, 105, 109, 101, 85, 83, 44, 73, 100, 44, 76, 97, 98, 101, 108, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -85,10 +92,10 @@ class StructTest {
         assert(result2[1] == "76")
         assert(result2[2] == "UNIT")
 
-        val clean3_2 = result2[3].replace("\u0000", "")
+        val clean3_2 = Util.nullTerm(result2[3])
         assert(clean3_2 == "QbZ")
 
-        val clean4_2 = result2[4].replace("\u0000", "")
+        val clean4_2 = Util.nullTerm(result2[4])
         assert(clean4_2 == "TimeUS,Id,Label")
     }
 }

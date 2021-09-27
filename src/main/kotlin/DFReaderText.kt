@@ -82,16 +82,14 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         rewind()
     }
 
-    /**
-     * Rewind to start of log
-     */
+
     override fun rewind() {
         println("rewind()")
         super.rewind()
         // find the first valid line
         offset = 0
         bufferedReader.close()
-        bufferedReader = BufferedReader( FileReader(filename))
+        bufferedReader = BufferedReader(FileReader(filename))
 
 //        offset = findNextTag("FMT, ", null, null)
 //        if (offset == -1) {
@@ -127,14 +125,6 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         }
     }
 
-    /**
-     * Warning, long-running, memory intensive operation
-     *
-     * This function returns, every entry from a DataFlash log, fully parsed as a DFMessage in an ArrayList. The list
-     * returned will be ordered in the same order as the DataFlash log (presumably, time-sorted order).
-     *
-     * @return ArrayList<DFMessage> containing a DFMessage for each entry in the DataFlash log
-     */
     override fun getAllMessages(): ArrayList<DFMessage> {
         val returnable = arrayListOf<DFMessage>()
         rewind()
@@ -160,23 +150,6 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
     }
 
 
-    /**
-     * Warning, possibly long-running operation.
-     *
-     * This function returns, for each field specified, an ArrayList containing every instance value for a given field
-     * paired with the timestamp of that values occurrence. In each Pair, the timestamp will be the first element and
-     * the value is the second. The list returned will be ordered in same order as the DataFlash log (presumably,
-     * time-sorted order). The ArrayLists are returned in a HashMap, in which each key is the name of the field, and the
-     * value is the ArrayList.
-     *
-     * In the case that a given field does not occur in the log, and empty ArrayList will be returned.
-     *
-     * Field names are case-sensitive.
-     *
-     * @param fields a collection of field names to search for the values of within the DataFlash log
-     * @return HashMap containing an ArrayList<Pair<Long, Any>> for each given field. Where the Pair's first element is
-     * the timestamp, and the second element is the value of the field at that instance
-     */
     override fun getFieldLists(fields : Collection<String>) : HashMap<String, ArrayList<Pair<Long,Any>>> {
         rewind()
         var lineCount = BigInteger.ZERO
@@ -208,30 +181,6 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
     }
 
 
-    /**
-     * Warning, possibly long-running operation.
-     *
-     * This function returns an ArrayList containing every instance value for a given field paired with the timestamp
-     * of that instance values occurrence, where the given lambda function also returns true when passed the DFMessage
-     * (the DataFlash log entry) the value was found in . In each Pair, the timestamp will be the first element and the
-     * value is the second. The list returned will be ordered in same order as the DataFlash log (presumably,
-     * time-sorted order).
-     *
-     * Field names are case-sensitive.
-     *
-     * This function is useful in the case where one only wants the instance of a field under certain conditions.
-     *
-     * Ex: val dfReader = DFReaderText("dataflash.log", null, null)
-     * val altsFromBaroMessages = dfReader.getFieldListConditional("Alt", { message -> message.getType() == "BARO" })
-     *
-     * The above example would return the list of timestamp/instance-value pair from the DataFlash log where the
-     * DFMessage's type was "BARO"
-     *
-     * @param field a field name to search for the values of within the DataFlash log
-     * @param shouldInclude a lambda function, which must return true to add a timestamp/instance-value pair to the
-     * returned ArrayList
-     * @return ArrayList<Pair<Long, Any>> where the Pair's first element is the timestamp, and the second element is the value of the field at that instance
-     */
     override fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>> {
         rewind()
         var lineCount = BigInteger.ZERO
@@ -372,7 +321,7 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
             elements = ArrayList(line.split(delimiter))
             offset += line.length + 1
             if (elements.size >= 2) {
-                // this_line is good
+                // this line is good
                 break
             }
         }
@@ -471,7 +420,7 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
             }
         }
         offset = highestOffset
-        val m = recvMsg()
+        val m = parseNext()
         return m!!.timestamp
     }
 

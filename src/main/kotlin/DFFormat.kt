@@ -86,7 +86,7 @@ class DFFormat(
         var msgMults = arrayListOf<Double?>()
 
         for (c in format) {
-//            if u_ord(c) == 0:
+//            if uOrd(c) == 0:
 //                return @loop
             try {
                 msgFmts.add(c)

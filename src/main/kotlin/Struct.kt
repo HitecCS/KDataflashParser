@@ -138,7 +138,6 @@ class Struct {
         private const val BigEndian: Short = 0
         private const val LittleEndian: Short = 1
         private var byteOrder: Short = 0
-        private var nativeByteOrder: Short = 0
         private fun reverseBytes(b: ByteArray): ByteArray {
             var tmp: Byte
             for (i in 0 until b.size / 2) {
@@ -210,23 +209,28 @@ class Struct {
             return x
         }
 
-        private fun unpackRaw_u32b(`val`: UByteArray): Long {
-            if (byteOrder == LittleEndian) reverseBytes(`val`)
-            val x = (`val`[0].toInt() and 0xff).toLong() shl 24 or ((`val`[1].toInt() and 0xff).toLong() shl 16) or ((`val`[2].toInt() and 0xff).toLong() shl 8) or (`val`[3].toInt() and 0xff).toLong()
+        private fun unpackRaw_u32b(uByteArray: UByteArray): Long {
+            if (byteOrder == LittleEndian) reverseBytes(uByteArray)
+//            val a = uByteArray[0].toInt() and 0x00ff shl 24
+//            val b = uByteArray[1].toInt() and 0x00ff shl 16
+//            val c = uByteArray[2].toInt() and 0x00ff shl 8
+//            val d = uByteArray[3].toInt() and 0x00ff
+//            var f = (a or b or c or d).toLong()
+            val x = (uByteArray[0].toInt() and 0xff).toLong() shl 24 or ((uByteArray[1].toInt() and 0xff).toLong() shl 16) or ((uByteArray[2].toInt() and 0xff).toLong() shl 8) or (uByteArray[3].toInt() and 0x00ff).toLong()
             return x
         }
 
         private fun unpackRaw_64b(byteArray: UByteArray): BigInteger {
             if (byteOrder == LittleEndian) reverseBytes(byteArray)
 
-            val a = byteArray[0].toInt() and 0x00ff shl 56
-            val b = byteArray[1].toInt() and 0x00ff shl 48
-            val c = byteArray[2].toInt() and 0x00ff shl 40
-            val d = byteArray[3].toInt() and 0x00ff shl 32
-            val e = byteArray[4].toInt() and 0x00ff shl 24
-            val f = byteArray[5].toInt() and 0x00ff shl 16
-            val g = byteArray[6].toInt() and 0x00ff shl 8
-            val h = byteArray[7].toInt() and 0x00ff
+//            val a = byteArray[0].toInt() and 0x00ff shl 56
+//            val b = byteArray[1].toInt() and 0x00ff shl 48
+//            val c = byteArray[2].toInt() and 0x00ff shl 40
+//            val d = byteArray[3].toInt() and 0x00ff shl 32
+//            val e = byteArray[4].toInt() and 0x00ff shl 24
+//            val f = byteArray[5].toInt() and 0x00ff shl 16
+//            val g = byteArray[6].toInt() and 0x00ff shl 8
+//            val h = byteArray[7].toInt() and 0x00ff
             var x = BigInteger(byteArray.toByteArray())// (a or b or c or d or e or f or g or h)
             var reparse = x.toByteArray()
 //            if (x ushr 63 and 1 == 1L) {
@@ -237,7 +241,7 @@ class Struct {
         }
 
         private fun unpackRaw_u64b(byteArray: UByteArray): BigInteger {
-            reverseBytes(byteArray)
+            if (byteOrder == LittleEndian) reverseBytes(byteArray)
 
             val a = byteArray[0].toInt() and 0x00ff shl 56
             val b = byteArray[1].toInt() and 0x00ff shl 48
@@ -372,13 +376,15 @@ class Struct {
         @Throws(Exception::class)
         fun unpack(fmt: String, bytesVals: UByteArray): Array<String> {
             val x = ByteOrder.nativeOrder()
-            if (x == ByteOrder.LITTLE_ENDIAN) nativeByteOrder = LittleEndian else nativeByteOrder = BigEndian
+            byteOrder = if (x == ByteOrder.LITTLE_ENDIAN) LittleEndian else BigEndian
 
             val returnableAL = arrayListOf<String>()
 
             var pos = 0
 
-            fmt.forEach { fmtChar ->
+//            fmt.forEach { fmtChar ->
+            for(i in 0 until fmt.length) {
+                val fmtChar = fmt[i]
                 val len = when(fmtChar) {
                     'x', 'b', 'B', 'M' -> 1
                     'h', 'H', 'c', 'C' -> 2
