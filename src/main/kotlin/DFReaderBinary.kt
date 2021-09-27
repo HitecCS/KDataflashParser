@@ -117,7 +117,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
             returnable[it] = arrayListOf()
         }
 
-        while (dataLen - offset < 3) {//dataMap.length
+        while (dataLen - offset > 3) {//dataMap.length
 
             parseNext()?.let { m ->
                 val intersection = m.fieldnames intersect fields
@@ -144,7 +144,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
 
         val returnable = ArrayList<Pair<Long,Any>>()
 
-        while (dataLen - offset < 3) {
+        while (dataLen - offset > 3) {
 
             parseNext()?.let { m ->
                 if(m.fieldnames.contains(field) && shouldInclude(m)) {

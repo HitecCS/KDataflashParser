@@ -12,4 +12,13 @@ class DataFlashParserTest {
         val allBinMessage = dfParserBin.getAllMessages()
         assert(allBinMessage.size == 130656)
     }
+
+    @Test
+    fun constructorTest() {
+        val allTextMessages = dfParserText.getAllMessages()
+        assert(allTextMessages.size == 130656)
+
+        val allBinMessage = dfParserBin.getAllMessages()
+        assert(allBinMessage.size == 130656)
+    }
 }
