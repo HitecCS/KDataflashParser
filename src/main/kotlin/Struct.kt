@@ -317,25 +317,25 @@ class Struct {
 
                 'c' -> {
                     if (byteArray.size != 2) throw Exception("Byte length mismatch")
-                    returnable = (unpackRaw_16b(byteArray) * 0.01).toString()
+                    returnable = unpackRaw_16b(byteArray).toString()
 
                 }
                 'C' -> {
                     if (byteArray.size != 2) throw Exception("Byte length mismatch")
-                    returnable = (unpackRaw_u16b(byteArray) * 0.01).toString()
+                    returnable = unpackRaw_u16b(byteArray).toString()
                 }
                 'e' -> {
                     if (byteArray.size != 4) throw Exception("Byte length mismatch")
-                    returnable = (unpackRaw_32b(byteArray) * 0.01).toString()
+                    returnable = unpackRaw_32b(byteArray).toString()
                 }
                 'E' -> {
                     if (byteArray.size != 4) throw Exception("Byte length mismatch")
-                    returnable = (unpackRaw_u32b(byteArray) * 0.01).toString()
+                    returnable = unpackRaw_u32b(byteArray).toString()
                 }
                 'L' -> {
                     if (byteArray.size != 4) throw Exception("Byte length mismatch")
                     val bigInt = BigDecimal.valueOf(unpackRaw_32b(byteArray))
-                    returnable = (bigInt.divide(BigDecimal.valueOf(10.0.pow(7.0).toLong()))).toString()
+                    returnable = bigInt.toString()
                 }
                 'd' -> {
                     if (byteArray.size != 8) throw Exception("Byte length mismatch")
