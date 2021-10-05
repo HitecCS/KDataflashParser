@@ -1,9 +1,21 @@
-import kotlin.Throws
-import java.nio.ByteOrder
-import java.math.BigDecimal
 import java.math.BigInteger
+import java.nio.ByteOrder
+import kotlin.Array
+import kotlin.Byte
+import kotlin.ByteArray
+import kotlin.Char
 import kotlin.Exception
-import kotlin.math.pow
+import kotlin.ExperimentalUnsignedTypes
+import kotlin.Int
+import kotlin.IntArray
+import kotlin.Long
+import kotlin.OptIn
+import kotlin.Short
+import kotlin.String
+import kotlin.Throws
+import kotlin.UByte
+import kotlin.UByteArray
+import kotlin.toUByte
 
 @OptIn(ExperimentalUnsignedTypes::class)
 class Struct {
@@ -158,6 +170,16 @@ class Struct {
             return b
         }
 
+        private fun reverseBytes(b: IntArray): IntArray {
+            var tmp: Int
+            for (i in 0 until b.size / 2) {
+                tmp = b[i]
+                b[i] = b[b.size - i - 1]
+                b[b.size - i - 1] = tmp
+            }
+            return b
+        }
+
 
 //        private fun packRaw_16b(`val`: Short): ByteArray {
 //            var bx = ByteArray(2)
@@ -194,31 +216,55 @@ class Struct {
             return x
         }
 
-        private fun unpackRaw_32b(byteArray: UByteArray): Long {
+        private fun unpackRaw_32b(byteArray: UByteArray): BigInteger {
             if (byteOrder == LittleEndian) reverseBytes(byteArray)
 
-            val a = byteArray[0].toInt() and 0x00ff shl 24
-            val b = byteArray[1].toInt() and 0x00ff shl 16
-            val c = byteArray[2].toInt() and 0x00ff shl 8
-            val d = byteArray[3].toInt() and 0x00ff
-            var x = (a or b or c or d).toLong()
-            if (x ushr 31 and 1 == 1L) {
-                x = (x xor 0x7fffffff and 0x7fffffff) + 1 //2's complement 32 bit
-                x *= -1
-            }
+//            val a = byteArray[0].toInt() and 0x00ff shl 24
+//            val b = byteArray[1].toInt() and 0x00ff shl 16
+//            val c = byteArray[2].toInt() and 0x00ff shl 8
+//            val d = byteArray[3].toInt() and 0x00ff
+//            var e = (a or b or c or d).toLong()
+//            if (x ushr 31 and 1 == 1L) {
+//                x = (x xor 0x7fffffff and 0x7fffffff) + 1 //2's complement 32 bit
+//                x *= -1
+//            }
+            var x = BigInteger(byteArray.toByteArray())
             return x
         }
 
-        private fun unpackRaw_u32b(uByteArray: UByteArray): Long {
+        private fun unpackRaw_u32b(uByteArray: UByteArray): BigInteger {
             if (byteOrder == LittleEndian) reverseBytes(uByteArray)
 //            val a = uByteArray[0].toInt() and 0x00ff shl 24
 //            val b = uByteArray[1].toInt() and 0x00ff shl 16
 //            val c = uByteArray[2].toInt() and 0x00ff shl 8
 //            val d = uByteArray[3].toInt() and 0x00ff
 //            var f = (a or b or c or d).toLong()
-            val x = (uByteArray[0].toInt() and 0xff).toLong() shl 24 or ((uByteArray[1].toInt() and 0xff).toLong() shl 16) or ((uByteArray[2].toInt() and 0xff).toLong() shl 8) or (uByteArray[3].toInt() and 0x00ff).toLong()
+//            val x = (uByteArray[0].toInt() and 0xff).toLong() shl 24 or ((uByteArray[1].toInt() and 0xff).toLong() shl 16) or ((uByteArray[2].toInt() and 0xff).toLong() shl 8) or (uByteArray[3].toInt() and 0x00ff).toLong()
+            var x = BigInteger(uByteArray.toByteArray())
             return x
         }
+
+
+        private fun toBitArray(uByteArray: UByteArray): IntArray {
+            val returnable = IntArray(uByteArray.size * 8)
+
+            uByteArray.forEachIndexed { i, uByte ->
+                for(bitIndex in 7 downTo 0) {
+                    val bit = (uByte.toInt() shr bitIndex) and 0x01
+                    returnable[i * 8 + (7 - bitIndex)] = bit
+                }
+            }
+            return returnable
+        }
+
+        private fun bitsToInt(input : IntArray) : Int {
+            var int = 0
+            input.forEachIndexed { i, v ->
+                int = int or (v shl ((input.size-1) - i))
+            }
+            return int
+        }
+
 
         private fun unpackRaw_64b(byteArray: UByteArray): BigInteger {
             if (byteOrder == LittleEndian) reverseBytes(byteArray)
@@ -257,6 +303,14 @@ class Struct {
             return x
         }
 
+        private fun toByteArray(intArray: IntArray): ByteArray {
+            val trueByteArray = ByteArray(intArray.size)
+            intArray.forEachIndexed { i, x ->
+                trueByteArray[i] = x.toByte()
+            }
+            return trueByteArray
+        }
+
         @OptIn(ExperimentalUnsignedTypes::class)
         @Throws(Exception::class)
         fun unpack_single_data(fmt: Char, byteArray: UByteArray): String {
@@ -271,7 +325,7 @@ class Struct {
                     if (byteArray.size != 1) throw Exception("Byte length mismatch")
                     returnable = byteArray[0].toInt().toString()
                 }
-                'b','M',  -> {
+                'b', 'M' -> {
                     if (byteArray.size != 1) throw Exception("Byte length mismatch")
                     returnable = byteArray[0].toInt().toString()
 
@@ -294,7 +348,9 @@ class Struct {
                 }
                 'f' -> {
                     if (byteArray.size != 4) throw Exception("Byte length mismatch")
-                    returnable = unpackRaw_32b(byteArray).toFloat().toString()
+                    val a = unpackRaw_32b(byteArray).toInt()
+                    val f = Float.fromBits(a)
+                    returnable = f.toString()
                 }
                 'n' -> {
                     var s = ""
@@ -334,12 +390,14 @@ class Struct {
                 }
                 'L' -> {
                     if (byteArray.size != 4) throw Exception("Byte length mismatch")
-                    val bigInt = BigDecimal.valueOf(unpackRaw_32b(byteArray))
+                    val bigInt = unpackRaw_32b(byteArray)
                     returnable = bigInt.toString()
                 }
                 'd' -> {
                     if (byteArray.size != 8) throw Exception("Byte length mismatch")
-                    returnable = unpackRaw_64b(byteArray).toString()
+                    val a = unpackRaw_64b(byteArray).toString()
+                    val d = Double.fromBits(a.toLong())
+                    returnable = d.toString()
                 }
                 'q' -> {
                     if (byteArray.size != 8) throw Exception("Byte length mismatch")

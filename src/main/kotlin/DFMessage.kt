@@ -233,27 +233,19 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
         return fmt.name
     }
 
-//    override fun toString() : String {
-//        var ret = String.format("%s {" , fmt.name)
-//        var col_count = 0
-//        for (c in fmt.columns) {
-//            var v = __getattr__(c)
-//            if(v is Float && math.isnan(v )) {
-////                quiet nans have more non - zero values :
-//                val noisy_nan = "\x7f\xf8\x00\x00\x00\x00\x00\x00"
-//                if (struct.pack(">d", v) != noisy_nan) {
-//                    v = "qnan"
-//                }
-//            }
-//            ret += String.format("%s : %s, " , c, v )
-//            col_count += 1
-//        }
-//        if(col_count != 0)
-//            ret = ret[:-2]
-//
-//        return ret + "}"
-//        return this.toString()
-//    }
+    override fun toString() : String {
+        var ret = String.format("%s {" , fmt.name)
+        var col_count = 0
+        for (c in fmt.columns.split(",")) {
+            val v = getAttr(c)
+            ret += String.format("%s : %s, " , c, v )
+            col_count += 1
+        }
+        if(col_count != 0)
+            ret = ret.substring(0, ret.length-2)
+
+        return ret + "}"
+    }
 
     /**
      * create a binary message buffer for a message
