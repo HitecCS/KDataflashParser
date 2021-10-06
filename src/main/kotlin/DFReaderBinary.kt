@@ -217,10 +217,11 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         val body = dataMap.copyOfRange(offset, offset+ fmt.len-3)
         var elements : Array<String>? = null
         try {
-            if(!unpackers.contains(msgType)) {
-                unpackers[msgType] = { array : UByteArray -> Struct.unpack(fmt!!.format, array) }
-            }
-            elements = unpackers[msgType]!!(body)
+//            if(!unpackers.contains(msgType)) {
+//                unpackers[msgType] = { format: String, array : UByteArray -> Struct.unpack(format, array) }
+//            }
+            //elements = unpackers[msgType]!!(body, fmt)
+            elements = Struct.unpack(fmt.format, body)
         } catch (ex: Throwable) {
             println(ex)
             if (remaining < 528) {
@@ -271,9 +272,9 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
 
         if (m.fmt.name == "FMTU") {
             // add to units information
-            val fmtType = elements[0].toInt()
-            val unitIds = elements[1]
-            val multIds = elements[2]
+            val fmtType = elements[1].toInt()
+            val unitIds = elements[2]
+            val multIds = elements[3]
             if (fmtType in formats) {
                 fmt = formats[fmtType]
                 fmt?.apply {
