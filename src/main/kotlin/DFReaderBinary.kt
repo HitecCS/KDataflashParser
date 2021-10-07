@@ -70,6 +70,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         prevType = null
         rewind()
         initArrays()
+        endTime = lastTimestamp()
     }
 
     /**
@@ -291,10 +292,6 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         }
         percent = (100.0 * (offset / dataLen)).toFloat()
 
-        if(endTime < m.timestamp) {
-            endTime = m.timestamp
-        }
-
         return m
     }
 
@@ -418,7 +415,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
                 continue
             if (offsets[i].size == 0)
                 continue
-            val ofs = offsets[i][-1]
+            val ofs = offsets[i][offsets[i].size - 1]
             if (ofs > highestOffset) {
                 secondHighestOffset = highestOffset
                 highestOffset = ofs

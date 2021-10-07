@@ -164,7 +164,7 @@ abstract class DFReader {
         var px4MsgTime : DFMessage? = null
         var px4MsgGps : DFMessage? = null
         var gpsInterpMsgGps1 : DFMessage? = null
-        var firstUsStamp : Int? = null
+        var firstUsStamp : Long? = null
         var firstMsStamp : Float? = null//guessed type
 
         var haveGoodClock = false
@@ -185,7 +185,7 @@ abstract class DFReader {
             }
 
             if (type == "GPS" || type == "GPS2") {
-                if (m.TimeUS != 0 && m.GWk != 0f) {//   everything-usec-timestamped
+                if (m.TimeUS != 0L && m.GWk != 0f) {//   everything-usec-timestamped
                     initClockUsec()
                     if (!zeroTimeBase ) {
                         (clock as DFReaderClockUSec).findTimeBase(m, firstUsStamp!!)

@@ -63,9 +63,9 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
         if(field == null) field = getFloatFieldByName("Value")
         return field
         }
-    var TimeUS : Int? = null
+    var TimeUS : Long? = null
         get() {
-            if(field == null) field = getIntFieldByName("TimeUS")
+            if(field == null) field = getLongFieldByName("TimeUS")
             return field
         }
     var TimeMS : Float? = null
@@ -210,7 +210,7 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
                 "MainState" -> MainState = v as Int
                 "Name" -> Name = v as String
                 "Value" -> Value = v as Float
-                "TimeUS" -> TimeUS = v as Int
+                "TimeUS" -> TimeUS = v as Long
                 "TimeMS" -> TimeMS = v as Float
                 "GWk" -> GWk = v as Float
                 "GMS" -> GMS = v as Float
