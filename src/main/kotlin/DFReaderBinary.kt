@@ -70,6 +70,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         prevType = null
         rewind()
         initArrays()
+        endTime = lastTimestamp()
     }
 
     /**
@@ -217,10 +218,11 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         val body = dataMap.copyOfRange(offset, offset+ fmt.len-3)
         var elements : Array<String>? = null
         try {
-            if(!unpackers.contains(msgType)) {
-                unpackers[msgType] = { array : UByteArray -> Struct.unpack(fmt!!.format, array) }
-            }
-            elements = unpackers[msgType]!!(body)
+//            if(!unpackers.contains(msgType)) {
+//                unpackers[msgType] = { format: String, array : UByteArray -> Struct.unpack(format, array) }
+//            }
+            //elements = unpackers[msgType]!!(body, fmt)
+            elements = Struct.unpack(fmt.format, body)
         } catch (ex: Throwable) {
             println(ex)
             if (remaining < 528) {
@@ -271,9 +273,9 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
 
         if (m.fmt.name == "FMTU") {
             // add to units information
-            val fmtType = elements[0].toInt()
-            val unitIds = elements[1]
-            val multIds = elements[2]
+            val fmtType = elements[1].toInt()
+            val unitIds = elements[2]
+            val multIds = elements[3]
             if (fmtType in formats) {
                 fmt = formats[fmtType]
                 fmt?.apply {
@@ -289,10 +291,6 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
             println(String.format("bad msg at offset %s, %s", offset, e.message))
         }
         percent = (100.0 * (offset / dataLen)).toFloat()
-
-        if(endTime < m.timestamp) {
-            endTime = m.timestamp
-        }
 
         return m
     }
@@ -417,7 +415,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
                 continue
             if (offsets[i].size == 0)
                 continue
-            val ofs = offsets[i][-1]
+            val ofs = offsets[i][offsets[i].size - 1]
             if (ofs > highestOffset) {
                 secondHighestOffset = highestOffset
                 highestOffset = ofs

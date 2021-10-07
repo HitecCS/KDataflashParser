@@ -80,6 +80,7 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         rewind()
         initArrays()
         rewind()
+        endTime = lastTimestamp()
     }
 
 
@@ -398,10 +399,6 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         }
         addMsg(m)
 
-        if(endTime < m.timestamp) {
-            endTime = m.timestamp
-        }
-
         return m
     }
 
@@ -409,19 +406,14 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
      * Get the last timestamp in the log
      */
     private fun lastTimestamp() : Long {
-        var highestOffset = 0
-        for (mType in counts.keys) {
-            if (offsets[mType]!!.size == 0) {
-                continue
-            }
-            ofs = offsets[mType]!![offsets.size-1]
-            if (ofs > highestOffset) {
-                highestOffset = ofs
-            }
+        rewind()
+        var lastM: DFMessage? = null
+        var m : DFMessage? = parseNext()
+        while (m != null) {
+            lastM = m
+            m = parseNext()
         }
-        offset = highestOffset
-        val m = parseNext()
-        return m!!.timestamp
+        return lastM!!.timestamp
     }
 
     /**
