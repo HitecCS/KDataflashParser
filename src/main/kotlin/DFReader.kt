@@ -293,7 +293,7 @@ abstract class DFReader {
                     "UNKNOWN"
                 }
             } else if ( m.Mode != null) {
-                flightMode = Util.modeStringACM(m.Mode!!.toInt())
+                flightMode = Util.modeStringCopter(m.Mode!!.toInt())
             }
 
 
