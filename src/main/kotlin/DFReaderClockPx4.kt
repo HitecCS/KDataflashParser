@@ -1,7 +1,7 @@
-/*
+/**
  * DFReaderClockPx4
  * Copyright (C) 2021 Hitec Commercial Solutions
- * Author, Stephen Woerner
+ * @author Stephen Woerner
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

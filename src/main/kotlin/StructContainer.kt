@@ -1,9 +1,9 @@
 import kotlin.reflect.KClass
 
-/*
+/**
  * StructContainer
  * Copyright (C) 2021 Hitec Commercial Solutions
- * Author, Stephen Woerner
+ * @author Stephen Woerner
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,6 +25,4 @@ import kotlin.reflect.KClass
  * Released under GNU GPL version 3 or later
  * Partly based on SDLog2Parser by Anton Babushkin
  */
-
-
 data class StructContainer(val cFormatCode: String, val mul: Double?, val type: KClass<out Any>) //TODO change name

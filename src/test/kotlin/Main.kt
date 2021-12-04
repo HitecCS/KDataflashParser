@@ -35,9 +35,9 @@ fun main() {
 
     val dfReaderText = DataFlashParser(filename3) { pct : Int -> println("percent $pct") }
     val start = dfReaderText.getStartAndEndTimes()
-    val baros = dfReaderText.getFieldListConditional("Alt") { m -> m.getType() == "BARO" }
-    val baros2 = dfReaderText.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
-    val msgs = dfReaderText.getAllMessagesOfType("MSG")
+    val baros = dfReaderText.getFieldListConditional("Alt", { m -> m.getType() == "BARO" }, null)
+    val baros2 = dfReaderText.getFieldListConditional("Alt", { m -> m.getType() != "BARO" }, null)
+    val msgs = dfReaderText.getAllMessagesOfType("MSG", null)
     val fieldLists =  dfReaderText.getFieldLists(hashSetOf(
         "Roll",
         "Pitch",
@@ -54,11 +54,11 @@ fun main() {
         "NSats",
         "HDop",
         "Mode"
-    ))
+    ),null)
 
 
     val dfBinParser = DataFlashParser(filename2)  { pct : Int -> println("percent $pct") }
-    val allBinMessages = dfBinParser.getAllMessages()
+    val allBinMessages = dfBinParser.getAllMessages(null)
     val lastTimestamp = dfBinParser.getStartAndEndTimes()
     val binFieldLists = dfBinParser.getFieldLists(hashSetOf(
         "Roll",
@@ -76,10 +76,10 @@ fun main() {
         "NSats",
         "HDop",
         "Mode"
-    ))
-    val msgsBin = dfBinParser.getAllMessagesOfType("MSG")
-    val baroAlts2 = dfBinParser.getFieldListConditional("Alt") { m -> m.getType() == "BARO" }
-    val nonBaroAlts2 = dfBinParser.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
+    ),null)
+    val msgsBin = dfBinParser.getAllMessagesOfType("MSG",null)
+    val baroAlts2 = dfBinParser.getFieldListConditional("Alt", { m -> m.getType() == "BARO" }, null)
+    val nonBaroAlts2 = dfBinParser.getFieldListConditional("Alt", { m -> m.getType() != "BARO" }, null)
 
     println(dfReaderText)
     println(dfBinParser)

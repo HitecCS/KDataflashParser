@@ -5,7 +5,7 @@ class DFReaderTextTest {
 
     @Test
     fun getAllMessagesTest() {
-        val allDFMessage = dfReaderText.getAllMessages()
+        val allDFMessage = dfReaderText.getAllMessages(null)
         assert(allDFMessage.size == 130656)
     }
 

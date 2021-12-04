@@ -7,10 +7,10 @@ import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 
-/*
- * DFReaderText
+/**
+ * DFReaderText - Parses a text DataFlash log
  * Copyright (C) 2021 Hitec Commercial Solutions
- * Author, Stephen Woerner
+ * @author Stephen Woerner
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,10 +32,6 @@ import kotlin.collections.HashSet
  * Released under GNU GPL version 3 or later
  * Partly based on SDLog2Parser by Anton Babushkin
  */
-
-/**
- * Parses a text DataFlash log
- */
 class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
 
     private var dataLen: Int
@@ -46,7 +42,6 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
     private var offset: Int
     private var delimiter: String
     private var offsets = hashMapOf<String,ArrayList<Int>>()
-//    private val lineIndex
     private var typeSet : HashSet<String>? = null
 
     var formats: HashMap<String, DFFormat>
@@ -86,7 +81,6 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
 
 
     override fun rewind() {
-        println("rewind()")
         super.rewind()
         // find the first valid line
         offset = 0
@@ -127,7 +121,7 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         }
     }
 
-    override fun getAllMessages(): ArrayList<DFMessage> {
+    override fun getAllMessages(progressCallback: ((Int) -> Unit)?): ArrayList<DFMessage> {
         val returnable = arrayListOf<DFMessage>()
         rewind()
         var lineCount = BigInteger.ZERO
@@ -142,7 +136,9 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
             val newPct = offset / dataLen
             if(pct != newPct) {
                 pct = newPct
-                println(newPct)
+                progressCallback?.let {
+                    it(newPct)
+                }
             }
             lineCount ++
         }
@@ -152,7 +148,7 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
     }
 
 
-    override fun getFieldLists(fields : Collection<String>) : HashMap<String, ArrayList<Pair<Long,Any>>> {
+    override fun getFieldLists(fields : Collection<String>, progressCallback: ((Int) -> Unit)?) : HashMap<String, ArrayList<Pair<Long,Any>>> {
         rewind()
         var pct = 0
 
@@ -186,7 +182,9 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
                     val newPct = offset / dataLen
                     if(pct != newPct) {
                         pct = newPct
-                        println(newPct)
+                        progressCallback?.let {
+                            it(newPct)
+                        }
                     }
                 }
             }
@@ -201,7 +199,7 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
     }
 
 
-    override fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>> {
+    override fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean, progressCallback: ((Int) -> Unit)?) : ArrayList<Pair<Long,Any>> {
         rewind()
         var nullCount = 0
         var pct = 0
@@ -234,7 +232,9 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
                 val newPct = offset / dataLen
                 if(pct != newPct) {
                     pct = newPct
-                    println(newPct)
+                    progressCallback?.let {
+                        it(newPct)
+                    }
                 }
             } ?: run {
                 nullCount++
@@ -245,21 +245,29 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         return returnable
     }
 
-    override fun getAllMessagesOfType(msgType : String) : ArrayList<DFMessage> {
+    override fun getAllMessagesOfType(msgType : String, progressCallback: ((Int) -> Unit)?) : ArrayList<DFMessage> {
         val returnable = arrayListOf<DFMessage>()
         rewind()
         var nullCount = 0
 
-        offsets[msgType]?.forEach { nextOffset ->
-            while(offset != nextOffset) {
-                skipMessage()
-            }
-            parseNext()?.let {
-                returnable.add(it)
-            } ?: run {
-                nullCount++
+        offsets[msgType]?.let { offsetsForMsgType ->
+            val length = offsetsForMsgType.size
+            offsetsForMsgType.forEachIndexed { index, nextOffset ->
+                while(offset != nextOffset) {
+                    skipMessage()
+                }
+                parseNext()?.let {
+                    returnable.add(it)
+                } ?: run {
+                    nullCount++
+                }
+
+                progressCallback?.let {
+                    it(100 * ((1 + index)/ length))
+                }
             }
         }
+
 
         rewind()
         return returnable
@@ -281,7 +289,7 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
 
         while (lineIndex < numLines) {
             parseNext()?.let { msg ->
-                var mType = msg.getType()
+                val mType = msg.getType()
 //            var mType = line.substring(0, 4)
 //            if (mType[3] == ',') {
 //                mType = mType.substring(0, 3)
@@ -508,6 +516,16 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
     private fun skipMessage() {
         val line = bufferedReader.readLine()
         offset += line.length + 2
+    }
+
+    override fun toString(): String {
+        var toString =  "DFReaderText: {\nstart time: $startTime,\nend time: $endTime,\ndatalength: $dataLen, pythonLength: $pythonLength, numLines: $numLines, \nnum formats: ${formats.size}\n details: { formats: {"
+        formats.forEach { toString += "${it.key},\n" }
+        toString += "}\ncounts : {"
+        counts.forEach { toString += "${it.key}[${it.value}],\n" }
+        toString += "}}}"
+
+        return toString
     }
 
 }
