@@ -1,9 +1,9 @@
 import java.nio.ByteBuffer
 
-/*
+/**
  * DFReader
  * Copyright (C) 2021 Hitec Commercial Solutions
- * Author, Stephen Woerner
+ * @author Stephen Woerner
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -62,7 +62,7 @@ abstract class DFReader {
      *
      * @return ArrayList<DFMessage> containing a DFMessage for each entry in the DataFlash log
      */
-    abstract fun getAllMessages(): ArrayList<DFMessage>
+    abstract fun getAllMessages(progressCallback: ((Int) -> Unit)?): ArrayList<DFMessage>
 
     /**
      * Warning, possibly long-running operation.
@@ -81,7 +81,7 @@ abstract class DFReader {
      * @return HashMap containing an ArrayList<Pair<Long, Any>> for each given field. Where the Pair's first element is
      * the timestamp, and the second element is the value of the field at that instance
      */
-    abstract fun getFieldLists(fields : Collection<String>) : HashMap<String, ArrayList<Pair<Long,Any>>>
+    abstract fun getFieldLists(fields : Collection<String>, progressCallback: ((Int) -> Unit)?) : HashMap<String, ArrayList<Pair<Long,Any>>>
 
     /**
      * Warning, possibly long-running operation.
@@ -107,7 +107,7 @@ abstract class DFReader {
      * returned ArrayList
      * @return ArrayList<Pair<Long, Any>> where the Pair's first element is the timestamp, and the second element is the value of the field at that instance
      */
-    abstract fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>>
+    abstract fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean, progressCallback: ((Int) -> Unit)?) : ArrayList<Pair<Long,Any>>
 
     /**
      * Gets each DFMessage of a specific message type (i.e. IMU3, NKF4, etc.)
@@ -115,7 +115,7 @@ abstract class DFReader {
      * @param msgType name of the type of message you'd like to return
      * @return ArrayList<DFMessage> of every DFMessage of that type, in time-sorted order. If the type is not in the log an empty ArrayList is returned
      */
-    abstract fun getAllMessagesOfType(msgType: String) : ArrayList<DFMessage>
+    abstract fun getAllMessagesOfType(msgType: String, progressCallback: ((Int) -> Unit)?) : ArrayList<DFMessage>
 
     /**
      * Rewind to start of log
@@ -411,4 +411,7 @@ abstract class DFReader {
         return bb.getInt(0)
     }
 
+    override fun toString(): String {
+        return "DFReader: {start time: $startTime, end time: $endTime}"
+    }
 }

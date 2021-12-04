@@ -2,10 +2,10 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
 
-/*
- * Util, a utility class for this project
+/**
+ * Util - a utility class for this project
  * Copyright (C) 2021 Hitec Commercial Solutions
- * Author, Stephen Woerner
+ * @author Stephen Woerner
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,6 @@ import java.io.FileReader
  * Released under GNU GPL version 3 or later
  * Partly based on SDLog2Parser by Anton Babushkin
  */
-
 object Util {
         private val modeMappingAPM = hashMapOf(
             Pair(0, "MANUAL"),
