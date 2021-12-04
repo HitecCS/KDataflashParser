@@ -110,25 +110,44 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         var pct = 0
 
         val returnable = hashMapOf<String, ArrayList<Pair<Long,Any>>>()
-        fields.forEach {
-            returnable[it] = arrayListOf()
-        }
 
-        while (dataLen - offset > 3) {//dataMap.length
 
-            parseNext()?.let { m ->
-                val intersection = m.fieldnames intersect fields
-                intersection.forEach {
-                    returnable[it]?.add(Pair(m.timestamp, m.getAttr(it).first!!))
+        fields.forEach { field ->
+
+            val typesWithThisField = arrayListOf<Int>()
+            formats.forEach { entry ->
+                if(entry.value.columnsArr.contains(field))
+                    typesWithThisField.add(entry.key)
+            }
+
+            val offsetsWithThisField = arrayListOf<Int>()
+            typesWithThisField.forEach { type ->
+                offsets[type].let {
+                    offsetsWithThisField.addAll(it)
                 }
             }
-            val newPct = (offset * 100)/ dataLen
-            if(pct != newPct) {
-                pct = newPct
-                println(newPct)
+
+            val sortedOffsets = offsetsWithThisField.sorted()
+
+            val returnableForField = ArrayList<Pair<Long,Any>>()
+
+            sortedOffsets.forEach { nextOffset ->
+                offset = nextOffset
+                parseNext()?.let { m ->
+                    returnableForField.add(Pair(m.timestamp, m.getAttr(field).first!!))
+                    val newPct = offset / dataLen
+                    if(pct != newPct) {
+                        pct = newPct
+                        println(newPct)
+                    }
+                }
             }
+
+            returnable[field] = returnableForField
         }
+
         rewind()
+
         return returnable
     }
 
@@ -139,21 +158,57 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         rewind()
         var pct = 0
 
-        val returnable = ArrayList<Pair<Long,Any>>()
+        val typesWithThisField = arrayListOf<Int>()
+        formats.forEach { entry ->
+            if(entry.value.columnsArr.contains(field))
+                typesWithThisField.add(entry.key)
+        }
 
-        while (dataLen - offset > 3) {
-
-            parseNext()?.let { m ->
-                if(m.fieldnames.contains(field) && shouldInclude(m)) {
-                    returnable.add(Pair(m.timestamp, m.getAttr(field).first!!))
-                }
-            }
-            val newPct = (offset * 100)/ dataLen
-            if(pct != newPct) {
-                pct = newPct
-                println(newPct)
+        val offsetsWithThisField = arrayListOf<Int>()
+        typesWithThisField.forEach { type ->
+            offsets[type].let {
+                offsetsWithThisField.addAll(it)
             }
         }
+
+        val sortedOffsets = offsetsWithThisField.sorted()
+
+        val returnable = ArrayList<Pair<Long,Any>>()
+
+        sortedOffsets.forEach { nextOffset ->
+            offset = nextOffset
+            parseNext()?.let { m ->
+                if(shouldInclude(m)) {
+                    returnable.add(Pair(m.timestamp, m.getAttr(field).first!!))
+                }
+                val newPct = offset / dataLen
+                if(pct != newPct) {
+                    pct = newPct
+                    println(newPct)
+                }
+            }
+        }
+        rewind()
+
+        return returnable
+    }
+
+    override fun getAllMessagesOfType(msgType : String) : ArrayList<DFMessage> {
+        val returnable = arrayListOf<DFMessage>()
+        rewind()
+        var nullCount = 0
+
+        nameToId[msgType]?.let { id ->
+            offsets[id].forEach { nextOffset ->
+                offset = nextOffset
+                parseNext()?.let {
+                    returnable.add(it)
+                } ?: run {
+                    nullCount++
+                }
+            }
+        }
+
         rewind()
         return returnable
     }

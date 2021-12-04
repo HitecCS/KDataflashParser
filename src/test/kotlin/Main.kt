@@ -35,31 +35,53 @@ fun main() {
 
     val dfReaderText = DataFlashParser(filename3) { pct : Int -> println("percent $pct") }
     val start = dfReaderText.getStartAndEndTimes()
-
-    val dfBinParser = DataFlashParser(filename2)  { pct : Int -> println("percent $pct") }
-//    val allBinMessages = dfBinParser.getAllMessages()
-    val lastTimestamp = dfBinParser.getStartAndEndTimes()
-    val binFieldLists = dfBinParser.getFieldLists(hashSetOf(
-//        "Roll",
-//        "Pitch",
-//        "Yaw",
-//        "Lat",
-//        "Lng",
+    val baros = dfReaderText.getFieldListConditional("Alt") { m -> m.getType() == "BARO" }
+    val baros2 = dfReaderText.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
+    val msgs = dfReaderText.getAllMessagesOfType("MSG")
+    val fieldLists =  dfReaderText.getFieldLists(hashSetOf(
+        "Roll",
+        "Pitch",
+        "Yaw",
+        "Lat",
+        "Lng",
         "VD",
         "VN",
         "VE",
-//        "Airspeed",
-//        "Spd",
-//        "Alt",
-//        "SM",
-//        "NSats",
-//        "HDop",
-//        "Mode"
+        "Airspeed",
+        "Spd",
+        "Alt",
+        "SM",
+        "NSats",
+        "HDop",
+        "Mode"
     ))
-//    val baroAlts2 = dfBinParser.getFieldListConditional("Alt") { m -> m.getType() == "BARO" }
-//    val nonBaroAlts2 = dfBinParser.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
 
-//    println(dfTextParser)
+
+    val dfBinParser = DataFlashParser(filename2)  { pct : Int -> println("percent $pct") }
+    val allBinMessages = dfBinParser.getAllMessages()
+    val lastTimestamp = dfBinParser.getStartAndEndTimes()
+    val binFieldLists = dfBinParser.getFieldLists(hashSetOf(
+        "Roll",
+        "Pitch",
+        "Yaw",
+        "Lat",
+        "Lng",
+        "VD",
+        "VN",
+        "VE",
+        "Airspeed",
+        "Spd",
+        "Alt",
+        "SM",
+        "NSats",
+        "HDop",
+        "Mode"
+    ))
+    val msgsBin = dfBinParser.getAllMessagesOfType("MSG")
+    val baroAlts2 = dfBinParser.getFieldListConditional("Alt") { m -> m.getType() == "BARO" }
+    val nonBaroAlts2 = dfBinParser.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
+
+    println(dfReaderText)
     println(dfBinParser)
 
 }
