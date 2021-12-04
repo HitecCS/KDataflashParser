@@ -110,6 +110,14 @@ abstract class DFReader {
     abstract fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>>
 
     /**
+     * Gets each DFMessage of a specific message type (i.e. IMU3, NKF4, etc.)
+     *
+     * @param msgType name of the type of message you'd like to return
+     * @return ArrayList<DFMessage> of every DFMessage of that type, in time-sorted order. If the type is not in the log an empty ArrayList is returned
+     */
+    abstract fun getAllMessagesOfType(msgType: String) : ArrayList<DFMessage>
+
+    /**
      * Rewind to start of log
      */
     open fun rewind() {

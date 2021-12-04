@@ -23,6 +23,10 @@ class DataFlashParser(val file: File, progressCallback: ((Int) -> Unit)?) {
         return dfReader.getFieldListConditional(field, shouldInclude)
     }
 
+    fun getAllMessagesOfType(type : String) : ArrayList<DFMessage> {
+        return dfReader.getAllMessagesOfType(type)
+    }
+
     fun getStartAndEndTimes() : Pair<Long, Long> {
         return dfReader.getStartAndEndTimes()
     }

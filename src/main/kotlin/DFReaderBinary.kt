@@ -158,6 +158,26 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         return returnable
     }
 
+    override fun getAllMessagesOfType(msgType : String) : ArrayList<DFMessage> {
+        val returnable = arrayListOf<DFMessage>()
+        rewind()
+        var nullCount = 0
+
+        nameToId[msgType]?.let { id ->
+            offsets[id].forEach { nextOffset ->
+                offset = nextOffset
+                parseNext()?.let {
+                    returnable.add(it)
+                } ?: run {
+                    nullCount++
+                }
+            }
+        }
+
+        rewind()
+        return returnable
+    }
+
 
     override fun parseNext() : DFMessage? {
 
