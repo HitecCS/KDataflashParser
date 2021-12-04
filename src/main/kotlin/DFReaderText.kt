@@ -203,7 +203,6 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
 
     override fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>> {
         rewind()
-        var lineCount = BigInteger.ZERO
         var nullCount = 0
         var pct = 0
 
