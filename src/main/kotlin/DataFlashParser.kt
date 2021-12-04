@@ -31,16 +31,32 @@ class DataFlashParser(val file: File, progressCallback: ((Int) -> Unit)?) {
         return dfReader.getAllMessages(progressCallback)
     }
 
+    fun getAllMessages(): ArrayList<DFMessage> {
+        return dfReader.getAllMessages(null)
+    }
+
     fun getFieldLists(fields : Collection<String>, progressCallback: ((Int) -> Unit)?) : HashMap<String, ArrayList<Pair<Long,Any>>> {
         return dfReader.getFieldLists(fields, progressCallback)
+    }
+
+    fun getFieldLists(fields : Collection<String>) : HashMap<String, ArrayList<Pair<Long,Any>>> {
+        return dfReader.getFieldLists(fields, null)
     }
 
     fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean, progressCallback: ((Int) -> Unit)?) : ArrayList<Pair<Long,Any>> {
         return dfReader.getFieldListConditional(field, shouldInclude, progressCallback)
     }
 
+    fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>> {
+        return dfReader.getFieldListConditional(field, shouldInclude, null)
+    }
+
     fun getAllMessagesOfType(type : String, progressCallback: ((Int) -> Unit)?) : ArrayList<DFMessage> {
         return dfReader.getAllMessagesOfType(type, progressCallback)
+    }
+
+    fun getAllMessagesOfType(type : String) : ArrayList<DFMessage> {
+        return dfReader.getAllMessagesOfType(type, null)
     }
 
     fun getStartAndEndTimes() : Pair<Long, Long> {

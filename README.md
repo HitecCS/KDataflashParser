@@ -1,6 +1,6 @@
 # KDataflashParser
 A Kotlin library providing a parser and convenience functions for parsing and analyzing Ardupilot/Px4 Dataflash logs.
-It's compatible with both Binary (.bin) and Text (.log) log formats
+It's compatible with both Binary `.bin` and Text `.log` log formats
 
 
 ## Overview
@@ -15,13 +15,18 @@ ArduCopter: https://ardupilot.org/copter/docs/logmessages.html
 
 ## Getting Started
 
-To parse a log use the wrapper class DataFlashParser, or you can use the main parsing classes `DFReaderBinary` or `DFReaderText` directly
+To parse a log use the wrapper class `DataFlashParser`, or you can use the main parsing classes `DFReaderBinary` or `DFReaderText` directly
     
-    val dfParser = DataFlashParser(filename) { pct : Int -> println("Percent $pct") }
+    val dfParser = DataFlashParser(filename) { pct : Int -> println("Percent indexed $pct") }
     
-To get a full list of every message in the log you can call `getAllMessages()`. However, this can be quite expensive on the processor and memory. This is especially not recommended on Android as it will quickly hit the memory limit.
+To get a full list of every message in the log you can call `getAllMessages`. However, this can be quite expensive on the processor and memory. This is especially not recommended on Android as it will quickly hit the memory limit.
    
      val allDataFlashMessages : ArrayList<DFMessage> = dfParser.getAllMessages()
+
+If you'd like to get all the message of a specific message type you can use: `getAllMessagesOfType`
+
+    val mgsMessages : ArrayList<DFMessage> = dfParser.getAllMessagesOfType("MSG")
+
 
 If you only need access to certain data fields, you can get lists of every message which contains those fields like this:
     
@@ -34,11 +39,9 @@ If you only need access to certain data fields, you can get lists of every messa
     allDataFlashMessages.size // = 270441
     fieldLists["Roll"].size // = 40347
     
-Some fields exist across multiple messages. If the message's type is important to you, you can filter messages in to your search in the following way. Note that this function can also be used to filter messages in more complex ways.
+Some fields exist across multiple messages. If you want to filter out messages using some conditional logic with this function: `getFieldListConditional` 
 
-    val baroAlts : ArrayList<DFMessage> = dfParser.getFieldListConditional("Alt") { m -> m.getType() == "BARO" }
-    
-    val nonBaroAlts : ArrayList<DFMessage> = dfParser.getFieldListConditional("Alt") { m -> m.getType() != "BARO" }
+    val northernBaroAlts : ArrayList<DFMessage> = dfParser.getFieldListConditional("Alt") { dfMessage -> dfMessage.Mode == "AUTO" }
 
 
 ##License
