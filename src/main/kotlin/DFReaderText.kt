@@ -7,10 +7,10 @@ import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 
-/*
- * DFReaderText
+/**
+ * DFReaderText - Parses a text DataFlash log
  * Copyright (C) 2021 Hitec Commercial Solutions
- * Author, Stephen Woerner
+ * @author Stephen Woerner
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,10 +31,6 @@ import kotlin.collections.HashSet
  *
  * Released under GNU GPL version 3 or later
  * Partly based on SDLog2Parser by Anton Babushkin
- */
-
-/**
- * Parses a text DataFlash log
  */
 class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
 
@@ -80,11 +76,11 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         rewind()
         initArrays()
         rewind()
+        endTime = lastTimestamp()
     }
 
 
     override fun rewind() {
-        println("rewind()")
         super.rewind()
         // find the first valid line
         offset = 0
@@ -125,7 +121,7 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         }
     }
 
-    override fun getAllMessages(): ArrayList<DFMessage> {
+    override fun getAllMessages(progressCallback: ((Int) -> Unit)?): ArrayList<DFMessage> {
         val returnable = arrayListOf<DFMessage>()
         rewind()
         var lineCount = BigInteger.ZERO
@@ -140,7 +136,9 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
             val newPct = offset / dataLen
             if(pct != newPct) {
                 pct = newPct
-                println(newPct)
+                progressCallback?.let {
+                    it(newPct)
+                }
             }
             lineCount ++
         }
@@ -150,60 +148,128 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
     }
 
 
-    override fun getFieldLists(fields : Collection<String>) : HashMap<String, ArrayList<Pair<Long,Any>>> {
+    override fun getFieldLists(fields : Collection<String>, progressCallback: ((Int) -> Unit)?) : HashMap<String, ArrayList<Pair<Long,Any>>> {
         rewind()
-        var lineCount = BigInteger.ZERO
         var pct = 0
 
         val returnable = hashMapOf<String, ArrayList<Pair<Long,Any>>>()
-        fields.forEach {
-            returnable[it] = arrayListOf()
-        }
 
-        while (lineCount < numLines) {//dataMap.length
+        fields.forEach { field ->
 
-            parseNext()?.let { m ->
-                val intersection = m.fieldnames intersect fields
-                intersection.forEach {
-                    returnable[it]?.add(Pair(m.timestamp, m.getAttr(it).first!!))
+            val typesWithThisField = arrayListOf<String>()
+            formats.forEach { entry ->
+                if(entry.value.columnsArr.contains(field))
+                    typesWithThisField.add(entry.key)
+            }
+
+            val offsetsWithThisField = arrayListOf<Int>()
+            typesWithThisField.forEach { type ->
+                offsets[type]?.let {
+                    offsetsWithThisField.addAll(it)
                 }
             }
-            val newPct = offset / dataLen//dataMap.length
-            if(pct != newPct) {
-                pct = newPct
-                println(newPct)
+
+            val sortedOffsets = offsetsWithThisField.sorted()
+
+            val returnableForField = ArrayList<Pair<Long,Any>>()
+
+            sortedOffsets.forEach { nextOffset ->
+                while(offset != nextOffset) {
+                    skipMessage()
+                }
+                parseNext()?.let { m ->
+                    returnableForField.add(Pair(m.timestamp, m.getAttr(field).first!!))
+                    val newPct = offset / dataLen
+                    if(pct != newPct) {
+                        pct = newPct
+                        progressCallback?.let {
+                            it(newPct)
+                        }
+                    }
+                }
             }
-            lineCount ++
+
+            returnable[field] = returnableForField
+            rewind()
         }
+
         offset = 0
         bufferedReader.close()
         return returnable
     }
 
 
-    override fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean) : ArrayList<Pair<Long,Any>> {
+    override fun getFieldListConditional(field : String, shouldInclude: (DFMessage) -> Boolean, progressCallback: ((Int) -> Unit)?) : ArrayList<Pair<Long,Any>> {
         rewind()
-        var lineCount = BigInteger.ZERO
+        var nullCount = 0
         var pct = 0
+
+        val typesWithThisField = arrayListOf<String>()
+        formats.forEach { entry ->
+            if(entry.value.columnsArr.contains(field))
+                typesWithThisField.add(entry.key)
+        }
+
+        val offsetsWithThisField = arrayListOf<Int>()
+        typesWithThisField.forEach { type ->
+            offsets[type]?.let {
+                offsetsWithThisField.addAll(it)
+            }
+        }
+
+        val sortedOffsets = offsetsWithThisField.sorted()
 
         val returnable = ArrayList<Pair<Long,Any>>()
 
-        while (lineCount < numLines) {
-
+        sortedOffsets.forEach { nextOffset ->
+            while(offset != nextOffset) {
+                skipMessage()
+            }
             parseNext()?.let { m ->
-                if(m.fieldnames.contains(field) && shouldInclude(m)) {
+                if(shouldInclude(m)) {
                     returnable.add(Pair(m.timestamp, m.getAttr(field).first!!))
                 }
+                val newPct = offset / dataLen
+                if(pct != newPct) {
+                    pct = newPct
+                    progressCallback?.let {
+                        it(newPct)
+                    }
+                }
+            } ?: run {
+                nullCount++
             }
-            val newPct = offset / dataLen
-            if(pct != newPct) {
-                pct = newPct
-                println(newPct)
-            }
-            lineCount ++
         }
         offset = 0
         bufferedReader.close()
+        return returnable
+    }
+
+    override fun getAllMessagesOfType(msgType : String, progressCallback: ((Int) -> Unit)?) : ArrayList<DFMessage> {
+        val returnable = arrayListOf<DFMessage>()
+        rewind()
+        var nullCount = 0
+
+        offsets[msgType]?.let { offsetsForMsgType ->
+            val length = offsetsForMsgType.size
+            offsetsForMsgType.forEachIndexed { index, nextOffset ->
+                while(offset != nextOffset) {
+                    skipMessage()
+                }
+                parseNext()?.let {
+                    returnable.add(it)
+                } ?: run {
+                    nullCount++
+                }
+
+                progressCallback?.let {
+                    it(100 * ((1 + index)/ length))
+                }
+            }
+        }
+
+
+        rewind()
         return returnable
     }
 
@@ -219,51 +285,57 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         count = 0
         ofs = offset
         var pct = 0
+        var lineIndex = BigInteger.ZERO
 
-        while (ofs + 16 < dataLen) {
-            val line = bufferedReader.readLine() ?: break
-            var mType = line.substring(0, 4)
-            if (mType[3] == ',') {
-                mType = mType.substring(0, 3)
-            }
-            if (!offsets.containsKey(mType)) {
-                counts[mType] = 0
-                offsets[mType] = arrayListOf()
-                offset = ofs
-                parseNext()
-            }
-            offsets[mType]?.add(ofs)
+        while (lineIndex < numLines) {
+            parseNext()?.let { msg ->
+                val mType = msg.getType()
+//            var mType = line.substring(0, 4)
+//            if (mType[3] == ',') {
+//                mType = mType.substring(0, 3)
+//            }
+                if (!offsets.containsKey(mType)) {
+                    counts[mType] = 0
+                    offsets[mType] = arrayListOf()
+                    offset = ofs
+//                parseNext()
+                }
+                offsets[mType]?.add(ofs)
 
-            counts[mType] = counts[mType]!! + 1
+                counts[mType] = counts[mType]!! + 1
 
-            if (mType == "FMT") {
-                offset = ofs
-                parseNext()
-            }
+//            if (mType == "FMT") {
+//                offset = ofs
+//                parseNext()
+//            }
+//
+//            if (mType == "FMTU") {
+//                offset = ofs
+//                parseNext()
+//            }
 
-            if (mType == "FMTU") {
-                offset = ofs
-                parseNext()
-            }
-
-            ofs += line.length //indexOf("\n", ofs)
-            if (ofs == -1) {
-                break
-            }
-            ofs += 1
-            val newPct = ((100.0 * ofs) / dataLen).toInt()
-            progressCallback?.let { callback ->
-                if(newPct != pct) {
-                    callback(newPct)
-                    pct = newPct
+                val line = "${msg.getType()}, ${msg.elements.joinToString(", ")}"
+                ofs += line.length
+                if (ofs == -1) {
+                    return
+                }
+                ofs += 2
+                val newPct = ((100.0 * ofs) / dataLen).toInt()
+                progressCallback?.let { callback ->
+                    if (newPct != pct) {
+                        callback(newPct)
+                        pct = newPct
+                    }
                 }
             }
+            lineIndex++
         }
 
         for (key in counts.keys) {
             count += counts[key]!!
         }
         offset = 0
+
     }
 
     /**
@@ -319,7 +391,7 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
                 break
 
             elements = ArrayList(line.split(delimiter))
-            offset += line.length + 1
+            offset += line.length + 2
             if (elements.size >= 2) {
                 // this line is good
                 break
@@ -398,10 +470,6 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
         }
         addMsg(m)
 
-        if(endTime < m.timestamp) {
-            endTime = m.timestamp
-        }
-
         return m
     }
 
@@ -409,19 +477,14 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
      * Get the last timestamp in the log
      */
     private fun lastTimestamp() : Long {
-        var highestOffset = 0
-        for (mType in counts.keys) {
-            if (offsets[mType]!!.size == 0) {
-                continue
-            }
-            ofs = offsets[mType]!![offsets.size-1]
-            if (ofs > highestOffset) {
-                highestOffset = ofs
-            }
+        rewind()
+        var lastM: DFMessage? = null
+        var m : DFMessage? = parseNext()
+        while (m != null) {
+            lastM = m
+            m = parseNext()
         }
-        offset = highestOffset
-        val m = parseNext()
-        return m!!.timestamp
+        return lastM!!.timestamp
     }
 
     /**
@@ -448,6 +511,21 @@ class DFReaderText(val filename: String, zeroBasedTime: Boolean?, private val pr
             head += line.length + "\n".length
         }
         return -1
+    }
+
+    private fun skipMessage() {
+        val line = bufferedReader.readLine()
+        offset += line.length + 2
+    }
+
+    override fun toString(): String {
+        var toString =  "DFReaderText: {\nstart time: $startTime,\nend time: $endTime,\ndatalength: $dataLen, pythonLength: $pythonLength, numLines: $numLines, \nnum formats: ${formats.size}\n details: { formats: {"
+        formats.forEach { toString += "${it.key},\n" }
+        toString += "}\ncounts : {"
+        counts.forEach { toString += "${it.key}[${it.value}],\n" }
+        toString += "}}}"
+
+        return toString
     }
 
 }

@@ -2,10 +2,10 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.FileReader
 
-/*
- * Util, a utility class for this project
+/**
+ * Util - a utility class for this project
  * Copyright (C) 2021 Hitec Commercial Solutions
- * Author, Stephen Woerner
+ * @author Stephen Woerner
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,6 @@ import java.io.FileReader
  * Released under GNU GPL version 3 or later
  * Partly based on SDLog2Parser by Anton Babushkin
  */
-
 object Util {
         private val modeMappingAPM = hashMapOf(
             Pair(0, "MANUAL"),
@@ -267,7 +266,7 @@ object Util {
         /**
          * Return mode string for APM:Plane
          */
-        fun modeStringAPM(modeNumber: Int): String {
+        fun modeStringPlane(modeNumber: Int): String {
             if (modeMappingAPM.contains(modeNumber))
                 return modeMappingAPM[modeNumber]!!
             return "Mode($modeNumber)"
@@ -276,9 +275,36 @@ object Util {
         /**
          * Return mode string for APM:Copter
          */
-        fun modeStringACM(modeNumber: Int): String {
+        fun modeStringCopter(modeNumber: Int): String {
             if (modeMappingACM.contains(modeNumber))
                 return modeMappingACM[modeNumber]!!
+            return "Mode(%$modeNumber)"
+        }
+
+        /**
+         * Return mode string for APM:Rover
+         */
+        fun modeStringRover(modeNumber: Int): String {
+            if (modeMappingRover.contains(modeNumber))
+                return modeMappingRover[modeNumber]!!
+            return "Mode(%$modeNumber)"
+        }
+
+        /**
+         * Return mode string for APM:Tracker
+         */
+        fun modeStringTracker(modeNumber: Int): String {
+            if (modeMappingTracker.contains(modeNumber))
+                return modeMappingTracker[modeNumber]!!
+            return "Mode(%$modeNumber)"
+        }
+
+        /**
+         * Return mode string for APM:Sub
+         */
+        fun modeStringSub(modeNumber: Int): String {
+            if (modeMappingSub.contains(modeNumber))
+                return modeMappingSub[modeNumber]!!
             return "Mode(%$modeNumber)"
         }
 

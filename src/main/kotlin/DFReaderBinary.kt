@@ -2,10 +2,10 @@ import Util.nullTerm
 import java.io.File
 
 
-/*
- * DFReaderBinary
+/**
+ * DFReaderBinary - Parse a binary dataflash file
  * Copyright (C) 2021 Hitec Commercial Solutions
- * Author, Stephen Woerner
+ * @author Stephen Woerner
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,10 +26,6 @@ import java.io.File
  *
  * Released under GNU GPL version 3 or later
  * Partly based on SDLog2Parser by Anton Babushkin
- */
-
-/**
- * Parse a binary dataflash file
  */
 @OptIn(ExperimentalUnsignedTypes::class)
 class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private val progressCallback: ((Int) -> Unit)?) : DFReader() {
@@ -70,6 +66,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         prevType = null
         rewind()
         initArrays()
+        endTime = lastTimestamp()
     }
 
     /**
@@ -83,7 +80,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         timestamp = 0
     }
 
-    override fun getAllMessages(): ArrayList<DFMessage> {
+    override fun getAllMessages(progressCallback: ((Int) -> Unit)?): ArrayList<DFMessage> {
         val returnable = arrayListOf<DFMessage>()
         rewind()
         var pct = 0
@@ -97,62 +94,129 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
             val newPct = (offset * 100)/ dataLen
             if(pct != newPct) {
                 pct = newPct
-                println(newPct)
+                progressCallback?.let {
+                    it(newPct)
+                }
             }
         }
         rewind()
         return returnable
     }
 
-    override fun getFieldLists(fields: Collection<String>): HashMap<String, ArrayList<Pair<Long, Any>>> {
+    override fun getFieldLists(fields: Collection<String>, progressCallback: ((Int) -> Unit)?): HashMap<String, ArrayList<Pair<Long, Any>>> {
         rewind()
         var pct = 0
 
         val returnable = hashMapOf<String, ArrayList<Pair<Long,Any>>>()
-        fields.forEach {
-            returnable[it] = arrayListOf()
-        }
 
-        while (dataLen - offset > 3) {//dataMap.length
 
-            parseNext()?.let { m ->
-                val intersection = m.fieldnames intersect fields
-                intersection.forEach {
-                    returnable[it]?.add(Pair(m.timestamp, m.getAttr(it).first!!))
+        fields.forEach { field ->
+
+            val typesWithThisField = arrayListOf<Int>()
+            formats.forEach { entry ->
+                if(entry.value.columnsArr.contains(field))
+                    typesWithThisField.add(entry.key)
+            }
+
+            val offsetsWithThisField = arrayListOf<Int>()
+            typesWithThisField.forEach { type ->
+                offsets[type].let {
+                    offsetsWithThisField.addAll(it)
                 }
             }
-            val newPct = (offset * 100)/ dataLen
-            if(pct != newPct) {
-                pct = newPct
-                println(newPct)
+
+            val sortedOffsets = offsetsWithThisField.sorted()
+
+            val returnableForField = ArrayList<Pair<Long,Any>>()
+
+            sortedOffsets.forEach { nextOffset ->
+                offset = nextOffset
+                parseNext()?.let { m ->
+                    returnableForField.add(Pair(m.timestamp, m.getAttr(field).first!!))
+                    val newPct = offset / dataLen
+                    if(pct != newPct) {
+                        pct = newPct
+                        progressCallback?.let {
+                            it(newPct)
+                        }
+                    }
+                }
             }
+
+            returnable[field] = returnableForField
         }
+
         rewind()
+
         return returnable
     }
 
     override fun getFieldListConditional(
         field: String,
-        shouldInclude: (DFMessage) -> Boolean
+        shouldInclude: (DFMessage) -> Boolean,
+        progressCallback: ((Int) -> Unit)?
     ): ArrayList<Pair<Long, Any>> {
         rewind()
         var pct = 0
 
-        val returnable = ArrayList<Pair<Long,Any>>()
+        val typesWithThisField = arrayListOf<Int>()
+        formats.forEach { entry ->
+            if(entry.value.columnsArr.contains(field))
+                typesWithThisField.add(entry.key)
+        }
 
-        while (dataLen - offset > 3) {
-
-            parseNext()?.let { m ->
-                if(m.fieldnames.contains(field) && shouldInclude(m)) {
-                    returnable.add(Pair(m.timestamp, m.getAttr(field).first!!))
-                }
-            }
-            val newPct = (offset * 100)/ dataLen
-            if(pct != newPct) {
-                pct = newPct
-                println(newPct)
+        val offsetsWithThisField = arrayListOf<Int>()
+        typesWithThisField.forEach { type ->
+            offsets[type].let {
+                offsetsWithThisField.addAll(it)
             }
         }
+
+        val sortedOffsets = offsetsWithThisField.sorted()
+
+        val returnable = ArrayList<Pair<Long,Any>>()
+
+        sortedOffsets.forEach { nextOffset ->
+            offset = nextOffset
+            parseNext()?.let { m ->
+                if(shouldInclude(m)) {
+                    returnable.add(Pair(m.timestamp, m.getAttr(field).first!!))
+                }
+                val newPct = offset / dataLen
+                if(pct != newPct) {
+                    pct = newPct
+                    progressCallback?.let {
+                        it(newPct)
+                    }
+                }
+            }
+        }
+        rewind()
+
+        return returnable
+    }
+
+    override fun getAllMessagesOfType(msgType : String, progressCallback: ((Int) -> Unit)?) : ArrayList<DFMessage> {
+        val returnable = arrayListOf<DFMessage>()
+        rewind()
+        var nullCount = 0
+
+        nameToId[msgType]?.let { id ->
+            val length = offsets[id].size
+            offsets[id].forEachIndexed { index, nextOffset  ->
+                offset = nextOffset
+                parseNext()?.let {
+                    returnable.add(it)
+                } ?: run {
+                    nullCount++
+                }
+
+                progressCallback?.let {
+                    it(100 * ((1+index)/length))
+                }
+            }
+        }
+
         rewind()
         return returnable
     }
@@ -217,10 +281,11 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         val body = dataMap.copyOfRange(offset, offset+ fmt.len-3)
         var elements : Array<String>? = null
         try {
-            if(!unpackers.contains(msgType)) {
-                unpackers[msgType] = { array : UByteArray -> Struct.unpack(fmt!!.format, array) }
-            }
-            elements = unpackers[msgType]!!(body)
+//            if(!unpackers.contains(msgType)) {
+//                unpackers[msgType] = { format: String, array : UByteArray -> Struct.unpack(format, array) }
+//            }
+            //elements = unpackers[msgType]!!(body, fmt)
+            elements = Struct.unpack(fmt.format, body)
         } catch (ex: Throwable) {
             println(ex)
             if (remaining < 528) {
@@ -271,9 +336,9 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
 
         if (m.fmt.name == "FMTU") {
             // add to units information
-            val fmtType = elements[0].toInt()
-            val unitIds = elements[1]
-            val multIds = elements[2]
+            val fmtType = elements[1].toInt()
+            val unitIds = elements[2]
+            val multIds = elements[3]
             if (fmtType in formats) {
                 fmt = formats[fmtType]
                 fmt?.apply {
@@ -289,10 +354,6 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
             println(String.format("bad msg at offset %s, %s", offset, e.message))
         }
         percent = (100.0 * (offset / dataLen)).toFloat()
-
-        if(endTime < m.timestamp) {
-            endTime = m.timestamp
-        }
 
         return m
     }
@@ -417,7 +478,7 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
                 continue
             if (offsets[i].size == 0)
                 continue
-            val ofs = offsets[i][-1]
+            val ofs = offsets[i][offsets[i].size - 1]
             if (ofs > highestOffset) {
                 secondHighestOffset = highestOffset
                 highestOffset = ofs
@@ -473,4 +534,17 @@ class DFReaderBinary(val filename: String, zero_based_time: Boolean?, private va
         */
     }
 
+    override fun toString(): String {
+        var toString =  "DFReaderBinary: {\nstart time: $startTime,\nend time: $endTime,\ndatalength: $dataLen, \nnum formats: ${formats.size}\n details: { formats: {"
+        formats.forEach { toString += "${idToName[it.key]},\n" }
+        toString += "}\ncounts: {"
+        counts.forEachIndexed { index, value ->
+            if(value>0) {
+                toString += "${idToName[index]}[$value],\n"
+            }
+        }
+        toString += "}}}"
+
+        return toString
+    }
 }

@@ -3,10 +3,10 @@ import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.reflect.KClass
 
-/*
+/**
  * DFMessage
  * Copyright (C) 2021 Hitec Commercial Solutions
- * Author, Stephen Woerner
+ * @author Stephen Woerner
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -63,9 +63,9 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
         if(field == null) field = getFloatFieldByName("Value")
         return field
         }
-    var TimeUS : Int? = null
+    var TimeUS : Long? = null
         get() {
-            if(field == null) field = getIntFieldByName("TimeUS")
+            if(field == null) field = getLongFieldByName("TimeUS")
             return field
         }
     var TimeMS : Float? = null
@@ -210,7 +210,7 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
                 "MainState" -> MainState = v as Int
                 "Name" -> Name = v as String
                 "Value" -> Value = v as Float
-                "TimeUS" -> TimeUS = v as Int
+                "TimeUS" -> TimeUS = v as Long
                 "TimeMS" -> TimeMS = v as Float
                 "GWk" -> GWk = v as Float
                 "GMS" -> GMS = v as Float
@@ -233,27 +233,19 @@ class DFMessage(val fmt: DFFormat, val elements: ArrayList<String>, val applyMul
         return fmt.name
     }
 
-//    override fun toString() : String {
-//        var ret = String.format("%s {" , fmt.name)
-//        var col_count = 0
-//        for (c in fmt.columns) {
-//            var v = __getattr__(c)
-//            if(v is Float && math.isnan(v )) {
-////                quiet nans have more non - zero values :
-//                val noisy_nan = "\x7f\xf8\x00\x00\x00\x00\x00\x00"
-//                if (struct.pack(">d", v) != noisy_nan) {
-//                    v = "qnan"
-//                }
-//            }
-//            ret += String.format("%s : %s, " , c, v )
-//            col_count += 1
-//        }
-//        if(col_count != 0)
-//            ret = ret[:-2]
-//
-//        return ret + "}"
-//        return this.toString()
-//    }
+    override fun toString() : String {
+        var ret = String.format("%s {" , fmt.name)
+        var col_count = 0
+        for (c in fmt.columns.split(",")) {
+            val v = getAttr(c)
+            ret += String.format("%s : %s, " , c, v )
+            col_count += 1
+        }
+        if(col_count != 0)
+            ret = ret.substring(0, ret.length-2)
+
+        return ret + "}"
+    }
 
     /**
      * create a binary message buffer for a message

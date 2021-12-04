@@ -1,6 +1,6 @@
 import kotlin.reflect.KClass
 
-/*
+/**
  * DFFormat
  * Copyright (C) 2021 Hitec Commercial Solutions
  * Author, Stephen Woerner
